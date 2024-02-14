@@ -1,1 +1,5 @@
 .DS_Store
+
+### Java ###
+# Compiled class file
+*.class
