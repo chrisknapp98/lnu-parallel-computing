@@ -3,3 +3,5 @@
 ### Java ###
 # Compiled class file
 *.class
+
+.idea/
