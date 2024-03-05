@@ -42,7 +42,8 @@ public class problem_2 {
         createOutputsDirectoryIfNeeded();
         try {
             File file = new File(path);
-            ImageIO.write(image, "jpg", file);
+            String fileExtension = path.substring(path.lastIndexOf(".") + 1);
+            ImageIO.write(image, fileExtension, file);
         } catch (IOException e) {
             System.out.println("Error: " + e.getMessage());
         }
