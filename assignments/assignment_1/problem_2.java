@@ -35,7 +35,7 @@ public class problem_2 {
 
     public static void createImageWithSharpEdges(String fileName, String fileExtension) {
         String inputImagePath = "../assets/" + fileName + "." + fileExtension;
-        String outputImagePath = "outputs/" + fileName + "_blurred." + fileExtension;
+        String outputImagePath = "outputs/" + fileName + "_sobel." + fileExtension;
         BufferedImage inputImage = ImageTools.readImage(inputImagePath);
         if (inputImage == null) {
             System.out.println("Error: The input image could not be read");
