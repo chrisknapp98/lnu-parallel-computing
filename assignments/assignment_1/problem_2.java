@@ -13,10 +13,11 @@ public class problem_2 {
     public static void main(String[] args) {
         String fileName = "squidward_painting";
         String fileExtension = "jpg";
-        blurAndSaveImage(fileName, fileExtension);
+        // createBlurredImage(fileName, fileExtension);
+        createImageWithSharpEdges(fileName, fileExtension);
     }
 
-    public static void blurAndSaveImage(String fileName, String fileExtension) {
+    public static void createBlurredImage(String fileName, String fileExtension) {
         String inputImagePath = "../assets/" + fileName + "." + fileExtension;
         String outputImagePath = "outputs/" + fileName + "_blurred." + fileExtension;
         BufferedImage inputImage = ImageTools.readImage(inputImagePath);
@@ -27,8 +28,22 @@ public class problem_2 {
         int radius = 20;
         double sigma = 20.0;
         // BufferedImage blurredImage = gaussianBlurImage(inputImage, radius, sigma);
-        BufferedImage blurredImage = gaussianBlurImageParallel(inputImage, radius, sigma);
+        BufferedImage blurredImage = gaussianBlurImageParallel(inputImage, radius,
+                sigma);
         ImageTools.writeImage(blurredImage, outputImagePath);
+    }
+
+    public static void createImageWithSharpEdges(String fileName, String fileExtension) {
+        String inputImagePath = "../assets/" + fileName + "." + fileExtension;
+        String outputImagePath = "outputs/" + fileName + "_blurred." + fileExtension;
+        BufferedImage inputImage = ImageTools.readImage(inputImagePath);
+        if (inputImage == null) {
+            System.out.println("Error: The input image could not be read");
+            return;
+        }
+        BufferedImage imageWithSharpEdges = applySobelFilter(inputImage);
+        // BufferedImage imageWithSharpEdges = applySobelFilterParallel(inputImage);
+        ImageTools.writeImage(imageWithSharpEdges, outputImagePath);
     }
 
     public static double[][] generateGaussianKernel(int radius, double sigma) {
@@ -50,6 +65,21 @@ public class problem_2 {
         }
 
         return kernel;
+    }
+
+    public static BufferedImage applySobelFilter(BufferedImage inputImage) {
+        int width = inputImage.getWidth();
+        int height = inputImage.getHeight();
+        BufferedImage outputImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int[] rgb = ImageTools.applySobelKernel(inputImage, x, y);
+                ImageTools.setRGBValues(outputImage, x, y, rgb);
+            }
+        }
+
+        return outputImage;
     }
 
     public static BufferedImage gaussianBlurImage(BufferedImage inputImage, int radius, double sigma) {
@@ -211,4 +241,38 @@ class ImageTools {
     public static void setRGBValues(BufferedImage image, int x, int y, int[] rgb) {
         image.setRGB(x, y, (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]);
     }
+
+    private static final int[][] SOBEL_HORIZONTAL = {
+            { -1, 0, 1 },
+            { -2, 0, 2 },
+            { -1, 0, 1 }
+    };
+
+    private static final int[][] SOBEL_VERTICAL = {
+            { -1, -2, -1 },
+            { 0, 0, 0 },
+            { 1, 2, 1 }
+    };
+
+    public static int[] applySobelKernel(BufferedImage image, int x, int y) {
+        int gx = 0, gy = 0; // Gradient components in x and y directions
+
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                if (x + i >= 0 && x + i < image.getWidth() && y + j >= 0 && y + j < image.getHeight()) {
+                    int pixel = image.getRGB(x + i, y + j);
+                    int intensity = (pixel >> 16) & 0xFF; // Using the red channel for intensity
+
+                    gx += intensity * SOBEL_HORIZONTAL[i + 1][j + 1];
+                    gy += intensity * SOBEL_VERTICAL[i + 1][j + 1];
+                }
+            }
+        }
+
+        int magnitude = (int) Math.sqrt(gx * gx + gy * gy); // Magnitude of gradient
+        magnitude = Math.min(255, magnitude); // Ensure within [0, 255] range
+
+        return new int[] { magnitude, magnitude, magnitude }; // Return as grayscale intensity
+    }
+
 }
