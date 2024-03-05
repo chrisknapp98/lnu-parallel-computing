@@ -18,42 +18,14 @@ public class problem_2 {
     public static void blurAndSaveImage(String fileName, String fileExtension) {
         String inputImagePath = "../assets/" + fileName + "." + fileExtension;
         String outputImagePath = "outputs/" + fileName + "_blurred." + fileExtension;
-        BufferedImage inputImage = readImage(inputImagePath);
+        BufferedImage inputImage = ImageTools.readImage(inputImagePath);
         if (inputImage == null) {
             System.out.println("Error: The input image could not be read");
             return;
         }
         // BufferedImage blurredImage = gaussianBlurImage(inputImage);
         BufferedImage blurredImage = gaussianBlurImageParallel(inputImage);
-        writeImage(blurredImage, outputImagePath);
-    }
-
-    private static BufferedImage readImage(String path) {
-        BufferedImage image = null;
-        try {
-            image = ImageIO.read(new File(path));
-        } catch (IOException e) {
-            System.out.println("Error: " + e.getMessage());
-        }
-        return image;
-    }
-
-    private static void writeImage(BufferedImage image, String path) {
-        createOutputsDirectoryIfNeeded();
-        try {
-            File file = new File(path);
-            String fileExtension = path.substring(path.lastIndexOf(".") + 1);
-            ImageIO.write(image, fileExtension, file);
-        } catch (IOException e) {
-            System.out.println("Error: " + e.getMessage());
-        }
-    }
-
-    private static void createOutputsDirectoryIfNeeded() {
-        File outputsDirectory = new File("outputs");
-        if (!outputsDirectory.exists()) {
-            outputsDirectory.mkdir();
-        }
+        ImageTools.writeImage(blurredImage, outputImagePath);
     }
 
     public static double[][] generateGaussianKernel(int radius, double sigma) {
@@ -193,5 +165,35 @@ class GaussianBlurTask extends RecursiveTask<BufferedImage> {
         }
 
         return result;
+    }
+}
+
+class ImageTools {
+    public static BufferedImage readImage(String path) {
+        BufferedImage image = null;
+        try {
+            image = ImageIO.read(new File(path));
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return image;
+    }
+
+    public static void writeImage(BufferedImage image, String path) {
+        createOutputsDirectoryIfNeeded();
+        try {
+            File file = new File(path);
+            String fileExtension = path.substring(path.lastIndexOf(".") + 1);
+            ImageIO.write(image, fileExtension, file);
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+
+    public static void createOutputsDirectoryIfNeeded() {
+        File outputsDirectory = new File("outputs");
+        if (!outputsDirectory.exists()) {
+            outputsDirectory.mkdir();
+        }
     }
 }
