@@ -2,6 +2,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 
@@ -23,8 +24,10 @@ public class problem_2 {
             System.out.println("Error: The input image could not be read");
             return;
         }
-        // BufferedImage blurredImage = gaussianBlurImage(inputImage);
-        BufferedImage blurredImage = gaussianBlurImageParallel(inputImage);
+        int radius = 20;
+        double sigma = 20.0;
+        // BufferedImage blurredImage = gaussianBlurImage(inputImage, radius, sigma);
+        BufferedImage blurredImage = gaussianBlurImageParallel(inputImage, radius, sigma);
         ImageTools.writeImage(blurredImage, outputImagePath);
     }
 
@@ -49,9 +52,7 @@ public class problem_2 {
         return kernel;
     }
 
-    public static BufferedImage gaussianBlurImage(BufferedImage inputImage) {
-        int radius = 30;
-        double sigma = 1.5;
+    public static BufferedImage gaussianBlurImage(BufferedImage inputImage, int radius, double sigma) {
         double[][] kernel = generateGaussianKernel(radius, sigma);
 
         int width = inputImage.getWidth();
@@ -60,70 +61,33 @@ public class problem_2 {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int[] rgb = applyKernel(inputImage, x, y, kernel, radius);
-                outputImage.setRGB(x, y, (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]);
+                int[] rgb = ImageTools.applyKernel(inputImage, x, y, kernel, radius);
+                ImageTools.setRGBValues(outputImage, x, y, rgb);
             }
         }
 
         return outputImage;
     }
 
-    public static int[] applyKernel(BufferedImage image, int x, int y, double[][] kernel, int radius) {
-        int width = image.getWidth();
-        int height = image.getHeight();
-        double sumR = 0, sumG = 0, sumB = 0;
-
-        for (int i = -radius; i <= radius; i++) {
-            for (int j = -radius; j <= radius; j++) {
-                int newX = x + i;
-                int newY = y + j;
-
-                if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
-                    int pixel = image.getRGB(newX, newY);
-                    double weight = kernel[i + radius][j + radius];
-
-                    sumR += ((pixel >> 16) & 0xFF) * weight;
-                    sumG += ((pixel >> 8) & 0xFF) * weight;
-                    sumB += (pixel & 0xFF) * weight;
-                }
-            }
-        }
-
-        return new int[] { (int) sumR, (int) sumG, (int) sumB };
-    }
-
-    public static BufferedImage gaussianBlurImageParallel(BufferedImage inputImage) {
+    public static BufferedImage gaussianBlurImageParallel(BufferedImage inputImage, int radius, double sigma) {
         int cores = Runtime.getRuntime().availableProcessors();
         ForkJoinPool pool = new ForkJoinPool(cores);
 
-        int radius = 20;
-        double sigma = 20;
         double[][] kernel = generateGaussianKernel(radius, sigma);
 
         int width = inputImage.getWidth();
         int height = inputImage.getHeight();
         BufferedImage outputImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 
-        int chunkWidth = width / cores;
-        ArrayList<GaussianBlurTask> tasks = new ArrayList<>();
+        List<GaussianBlurTask> tasks = createTasks(inputImage, outputImage, kernel, radius);
 
-        for (int i = 0; i < cores; i++) {
-            int startWidth = i * chunkWidth;
-            int endWidth = (i == cores - 1) ? width : (i + 1) * chunkWidth;
-            GaussianBlurTask task = new GaussianBlurTask(inputImage, startWidth, endWidth, kernel, radius);
-            tasks.add(task);
-        }
-
-        // Invoke all tasks
         for (GaussianBlurTask task : tasks) {
             pool.execute(task);
         }
 
-        // Wait for all tasks to complete and combine the results
         for (GaussianBlurTask task : tasks) {
             try {
-                BufferedImage part = task.get();
-                outputImage.getGraphics().drawImage(part, task.startWidth, 0, null);
+                task.get();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -134,17 +98,43 @@ public class problem_2 {
         return outputImage;
     }
 
+    private static List<GaussianBlurTask> createTasks(
+            BufferedImage inputImage,
+            BufferedImage outputImage,
+            double[][] kernel,
+            int radius) {
+        int cores = Runtime.getRuntime().availableProcessors();
+        int width = inputImage.getWidth();
+        int chunkWidth = width / cores;
+        List<GaussianBlurTask> tasks = new ArrayList<>();
+
+        for (int i = 0; i < cores; i++) {
+            int startWidth = i * chunkWidth;
+            int endWidth = (i < cores - 1) ? (i + 1) * chunkWidth : width;
+
+            GaussianBlurTask task = new GaussianBlurTask(inputImage, outputImage, startWidth, endWidth, kernel, radius);
+            tasks.add(task);
+        }
+
+        return tasks;
+    }
+
 }
 
-class GaussianBlurTask extends RecursiveTask<BufferedImage> {
+class GaussianBlurTask extends RecursiveTask<Void> {
     private final BufferedImage sourceImage;
-    final int startWidth;
-    private final int endWidth;
+    private final BufferedImage outputImage;
+    private final int startWidth, endWidth;
     private final double[][] kernel;
     private final int radius;
 
-    GaussianBlurTask(BufferedImage sourceImage, int startWidth, int endWidth, double[][] kernel, int radius) {
+    GaussianBlurTask(
+            BufferedImage sourceImage,
+            BufferedImage outputImage,
+            int startWidth, int endWidth,
+            double[][] kernel, int radius) {
         this.sourceImage = sourceImage;
+        this.outputImage = outputImage;
         this.startWidth = startWidth;
         this.endWidth = endWidth;
         this.kernel = kernel;
@@ -152,19 +142,16 @@ class GaussianBlurTask extends RecursiveTask<BufferedImage> {
     }
 
     @Override
-    protected BufferedImage compute() {
-        int width = endWidth - startWidth;
-        int height = sourceImage.getHeight();
-        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-
-        for (int y = 0; y < height; y++) {
+    protected Void compute() {
+        for (int y = 0; y < sourceImage.getHeight(); y++) {
             for (int x = startWidth; x < endWidth; x++) {
-                int[] rgb = problem_2.applyKernel(sourceImage, x, y, kernel, radius);
-                result.setRGB(x - startWidth, y, (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]);
+                int[] rgb = ImageTools.applyKernel(sourceImage, x, y, kernel, radius);
+                synchronized (outputImage) {
+                    ImageTools.setRGBValues(outputImage, x, y, rgb);
+                }
             }
         }
-
-        return result;
+        return null;
     }
 }
 
@@ -195,5 +182,33 @@ class ImageTools {
         if (!outputsDirectory.exists()) {
             outputsDirectory.mkdir();
         }
+    }
+
+    public static int[] applyKernel(BufferedImage image, int x, int y, double[][] kernel, int radius) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        double sumR = 0, sumG = 0, sumB = 0;
+
+        for (int i = -radius; i <= radius; i++) {
+            for (int j = -radius; j <= radius; j++) {
+                int newX = x + i;
+                int newY = y + j;
+
+                if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
+                    int pixel = image.getRGB(newX, newY);
+                    double weight = kernel[i + radius][j + radius];
+
+                    sumR += ((pixel >> 16) & 0xFF) * weight;
+                    sumG += ((pixel >> 8) & 0xFF) * weight;
+                    sumB += (pixel & 0xFF) * weight;
+                }
+            }
+        }
+
+        return new int[] { (int) sumR, (int) sumG, (int) sumB };
+    }
+
+    public static void setRGBValues(BufferedImage image, int x, int y, int[] rgb) {
+        image.setRGB(x, y, (rgb[0] << 16) | (rgb[1] << 8) | rgb[2]);
     }
 }
