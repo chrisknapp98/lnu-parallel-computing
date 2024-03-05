@@ -51,5 +51,6 @@ Run   | Radius    | Sigma | Non-Parallel Execution Time (s)   |   Parallel Execu
 | 1         | 10        | 20.0  | 14.94                             | 3.59                          |
 
 The results clearly demonstrate the efficiency of parallelizing the Gaussian blur operation. With a radius of 10 and a sigma of 20.0, the parallelized version of the code executes significantly faster than the non-parallel version, reducing the execution time by approximately 76%.
-
 A higher radius leads to significantly longer execution time the impact of sigma seems to have a lower impact.
+
+For the Sobel filter, running the calculations in parallel results in only slight improvements. This is primarily due to the inherently lower complexity of the Sobel filter algorithm compared to the Gaussian blur. The Gaussian blur's computational load can be significantly increased by parameters such as `radius`, which directly impacts the size of the convolution kernel and, consequently, the number of calculations required per pixel. In contrast, the Sobel filter uses a fixed-size kernel (typically 3x3), leading to a relatively consistent and lower computational load regardless of the image size. Therefore the overhead associated with managing parallel tasks can offset the gains from distributing this workload across multiple processors.

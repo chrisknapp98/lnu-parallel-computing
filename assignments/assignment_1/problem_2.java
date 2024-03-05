@@ -28,8 +28,7 @@ public class problem_2 {
         int radius = 20;
         double sigma = 20.0;
         // BufferedImage blurredImage = gaussianBlurImage(inputImage, radius, sigma);
-        BufferedImage blurredImage = gaussianBlurImageParallel(inputImage, radius,
-                sigma);
+        BufferedImage blurredImage = applyFilterInParallel(inputImage, FilterType.GAUSSIAN_BLUR, radius, sigma);
         ImageTools.writeImage(blurredImage, outputImagePath);
     }
 
@@ -41,30 +40,10 @@ public class problem_2 {
             System.out.println("Error: The input image could not be read");
             return;
         }
-        BufferedImage imageWithSharpEdges = applySobelFilter(inputImage);
-        // BufferedImage imageWithSharpEdges = applySobelFilterParallel(inputImage);
+        // BufferedImage imageWithSharpEdges = applySobelFilter(inputImage);
+        BufferedImage imageWithSharpEdges = applyFilterInParallel(inputImage,
+                FilterType.SOBEL_EDGE_DETECTION, 0, 0);
         ImageTools.writeImage(imageWithSharpEdges, outputImagePath);
-    }
-
-    public static double[][] generateGaussianKernel(int radius, double sigma) {
-        int size = 2 * radius + 1;
-        double[][] kernel = new double[size][size];
-        double sum = 0.0;
-
-        for (int i = -radius; i <= radius; i++) {
-            for (int j = -radius; j <= radius; j++) {
-                kernel[i + radius][j + radius] = Math.exp(-(i * i + j * j) / (2 * sigma * sigma));
-                sum += kernel[i + radius][j + radius];
-            }
-        }
-
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                kernel[i][j] /= sum;
-            }
-        }
-
-        return kernel;
     }
 
     public static BufferedImage applySobelFilter(BufferedImage inputImage) {
@@ -83,7 +62,7 @@ public class problem_2 {
     }
 
     public static BufferedImage gaussianBlurImage(BufferedImage inputImage, int radius, double sigma) {
-        double[][] kernel = generateGaussianKernel(radius, sigma);
+        double[][] kernel = ImageTools.generateGaussianBlurKernel(radius, sigma);
 
         int width = inputImage.getWidth();
         int height = inputImage.getHeight();
@@ -91,7 +70,7 @@ public class problem_2 {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int[] rgb = ImageTools.applyKernel(inputImage, x, y, kernel, radius);
+                int[] rgb = ImageTools.applyGaussianBlurKernel(inputImage, x, y, kernel, radius);
                 ImageTools.setRGBValues(outputImage, x, y, rgb);
             }
         }
@@ -99,23 +78,28 @@ public class problem_2 {
         return outputImage;
     }
 
-    public static BufferedImage gaussianBlurImageParallel(BufferedImage inputImage, int radius, double sigma) {
+    public static BufferedImage applyFilterInParallel(
+            BufferedImage inputImage,
+            FilterType filterType,
+            int radius,
+            double sigma) {
+        double[][] kernel = null;
+        if (filterType == FilterType.GAUSSIAN_BLUR) {
+            kernel = ImageTools.generateGaussianBlurKernel(radius, sigma);
+        }
+
         int cores = Runtime.getRuntime().availableProcessors();
         ForkJoinPool pool = new ForkJoinPool(cores);
+        BufferedImage outputImage = new BufferedImage(inputImage.getWidth(), inputImage.getHeight(),
+                BufferedImage.TYPE_INT_RGB);
 
-        double[][] kernel = generateGaussianKernel(radius, sigma);
+        List<ImageProcessingTask> tasks = createTasks(inputImage, outputImage, filterType, kernel, radius);
 
-        int width = inputImage.getWidth();
-        int height = inputImage.getHeight();
-        BufferedImage outputImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-
-        List<GaussianBlurTask> tasks = createTasks(inputImage, outputImage, kernel, radius);
-
-        for (GaussianBlurTask task : tasks) {
+        for (ImageProcessingTask task : tasks) {
             pool.execute(task);
         }
 
-        for (GaussianBlurTask task : tasks) {
+        for (ImageProcessingTask task : tasks) {
             try {
                 task.get();
             } catch (Exception e) {
@@ -124,25 +108,32 @@ public class problem_2 {
         }
 
         pool.shutdown();
-
         return outputImage;
     }
 
-    private static List<GaussianBlurTask> createTasks(
+    private static List<ImageProcessingTask> createTasks(
             BufferedImage inputImage,
             BufferedImage outputImage,
+            FilterType filterType,
             double[][] kernel,
             int radius) {
         int cores = Runtime.getRuntime().availableProcessors();
         int width = inputImage.getWidth();
         int chunkWidth = width / cores;
-        List<GaussianBlurTask> tasks = new ArrayList<>();
+        List<ImageProcessingTask> tasks = new ArrayList<>();
 
         for (int i = 0; i < cores; i++) {
             int startWidth = i * chunkWidth;
             int endWidth = (i < cores - 1) ? (i + 1) * chunkWidth : width;
 
-            GaussianBlurTask task = new GaussianBlurTask(inputImage, outputImage, startWidth, endWidth, kernel, radius);
+            ImageProcessingTask task = new ImageProcessingTask(
+                    inputImage,
+                    outputImage,
+                    startWidth,
+                    endWidth,
+                    filterType,
+                    kernel,
+                    radius);
             tasks.add(task);
         }
 
@@ -151,37 +142,63 @@ public class problem_2 {
 
 }
 
-class GaussianBlurTask extends RecursiveTask<Void> {
+enum FilterType {
+    GAUSSIAN_BLUR,
+    SOBEL_EDGE_DETECTION
+}
+
+class ImageProcessingTask extends RecursiveTask<Void> {
     private final BufferedImage sourceImage;
     private final BufferedImage outputImage;
     private final int startWidth, endWidth;
+    private final FilterType filterType;
     private final double[][] kernel;
-    private final int radius;
+    private final int radius; // Relevant for Gaussian blur
 
-    GaussianBlurTask(
-            BufferedImage sourceImage,
-            BufferedImage outputImage,
-            int startWidth, int endWidth,
-            double[][] kernel, int radius) {
+    ImageProcessingTask(BufferedImage sourceImage, BufferedImage outputImage, int startWidth, int endWidth,
+            FilterType filterType, double[][] kernel, int radius) {
         this.sourceImage = sourceImage;
         this.outputImage = outputImage;
         this.startWidth = startWidth;
         this.endWidth = endWidth;
+        this.filterType = filterType;
         this.kernel = kernel;
         this.radius = radius;
     }
 
     @Override
     protected Void compute() {
+        switch (filterType) {
+            case GAUSSIAN_BLUR:
+                applyGaussianBlur();
+                break;
+            case SOBEL_EDGE_DETECTION:
+                applySobelEdgeDetection();
+                break;
+        }
+        return null;
+    }
+
+    private void applyGaussianBlur() {
         for (int y = 0; y < sourceImage.getHeight(); y++) {
             for (int x = startWidth; x < endWidth; x++) {
-                int[] rgb = ImageTools.applyKernel(sourceImage, x, y, kernel, radius);
+                int[] rgb = ImageTools.applyGaussianBlurKernel(sourceImage, x, y, kernel, radius);
                 synchronized (outputImage) {
                     ImageTools.setRGBValues(outputImage, x, y, rgb);
                 }
             }
         }
-        return null;
+    }
+
+    private void applySobelEdgeDetection() {
+        for (int y = 0; y < sourceImage.getHeight(); y++) {
+            for (int x = startWidth; x < endWidth; x++) {
+                int[] rgb = ImageTools.applySobelKernel(sourceImage, x, y);
+                synchronized (outputImage) {
+                    ImageTools.setRGBValues(outputImage, x, y, rgb);
+                }
+            }
+        }
     }
 }
 
@@ -214,7 +231,28 @@ class ImageTools {
         }
     }
 
-    public static int[] applyKernel(BufferedImage image, int x, int y, double[][] kernel, int radius) {
+    public static double[][] generateGaussianBlurKernel(int radius, double sigma) {
+        int size = 2 * radius + 1;
+        double[][] kernel = new double[size][size];
+        double sum = 0.0;
+
+        for (int i = -radius; i <= radius; i++) {
+            for (int j = -radius; j <= radius; j++) {
+                kernel[i + radius][j + radius] = Math.exp(-(i * i + j * j) / (2 * sigma * sigma));
+                sum += kernel[i + radius][j + radius];
+            }
+        }
+
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                kernel[i][j] /= sum;
+            }
+        }
+
+        return kernel;
+    }
+
+    public static int[] applyGaussianBlurKernel(BufferedImage image, int x, int y, double[][] kernel, int radius) {
         int width = image.getWidth();
         int height = image.getHeight();
         double sumR = 0, sumG = 0, sumB = 0;
@@ -255,13 +293,13 @@ class ImageTools {
     };
 
     public static int[] applySobelKernel(BufferedImage image, int x, int y) {
-        int gx = 0, gy = 0; // Gradient components in x and y directions
+        int gx = 0, gy = 0;
 
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
                 if (x + i >= 0 && x + i < image.getWidth() && y + j >= 0 && y + j < image.getHeight()) {
                     int pixel = image.getRGB(x + i, y + j);
-                    int intensity = (pixel >> 16) & 0xFF; // Using the red channel for intensity
+                    int intensity = (pixel >> 16) & 0xFF;
 
                     gx += intensity * SOBEL_HORIZONTAL[i + 1][j + 1];
                     gy += intensity * SOBEL_VERTICAL[i + 1][j + 1];
@@ -269,10 +307,10 @@ class ImageTools {
             }
         }
 
-        int magnitude = (int) Math.sqrt(gx * gx + gy * gy); // Magnitude of gradient
-        magnitude = Math.min(255, magnitude); // Ensure within [0, 255] range
+        int magnitude = (int) Math.sqrt(gx * gx + gy * gy);
+        magnitude = Math.min(255, magnitude);
 
-        return new int[] { magnitude, magnitude, magnitude }; // Return as grayscale intensity
+        return new int[] { magnitude, magnitude, magnitude };
     }
 
 }
