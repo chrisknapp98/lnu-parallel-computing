@@ -59,7 +59,7 @@ def gauss_seidel_step(m):
             tmp = m[i, j]
             m[i, j] = (m[i, j-1] + m[i, j+1] + m[i-1, j] + m[i+1, j]) / 4
             diff = tmp - m[i, j]
-            s += diff**2 * diff**2
+            s += diff**2 # Adjusted for correctness: previously s += diff**2 * diff**2
 
     return s
 
