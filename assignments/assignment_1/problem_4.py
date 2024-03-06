@@ -52,8 +52,11 @@ def run_with_given_params(grid_size, maxiter, tol):
     res, i = gauss_seidel(m, maxiter, tol)
     print(f'residual = {res} after {i} iterations')
 
+def trigger_jit_compilation():
+    run_with_given_params(10, 1, 1)
+
 def run_and_test_scalability(maxiter, tol):
-    grid_sizes = [50, 100, 150, 200, 250]
+    grid_sizes = [100, 250, 500, 1000, 1500]
     thread_counts = [1, 2, 4, 8]
     test_scalability(grid_sizes, thread_counts, maxiter, tol)
 
@@ -74,4 +77,5 @@ if __name__ == '__main__':
     maxiter = 25000
     tol = 0.00005
     # run_with_given_params(100, maxiter, tol)
+    trigger_jit_compilation()
     run_and_test_scalability(maxiter, tol)
