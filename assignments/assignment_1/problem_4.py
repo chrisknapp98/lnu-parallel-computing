@@ -2,7 +2,13 @@ import time
 import numpy as np
 from math import sqrt
 from numba import njit, prange, set_num_threads
-import heat as heat
+import sys
+from pathlib import Path
+# workaround to be able to import common.heat
+parent_dir = Path(__file__).resolve().parents[1]
+sys.path.append(str(parent_dir))
+import common.heat as heat
+
 
 @njit(parallel=True)
 def gauss_seidel_step(m):
