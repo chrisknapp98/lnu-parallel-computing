@@ -9,19 +9,58 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class problem_1 {
+
     public static void main(String[] args) {
         int digits = 7;
-        int terms = 1000000;
+        int terms = 100000;
+        runWithGivenParams(digits, terms);
+        // runAndTestScalability();
+    }
+
+    public static void runWithGivenParams(int digits, int terms) {
         int numberOfThreads = Runtime.getRuntime().availableProcessors();
         ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
         try {
-            // BigDecimal piApproximation = problem_1.approximatePi(digits, terms);
-            BigDecimal piApproximation = problem_1.approximatePiParallel(digits, terms, executor);
+            BigDecimal piApproximation = approximatePi(digits, terms);
+            // BigDecimal piApproximation = approximatePiParallel(digits, terms, executor);
             System.out.println("Pi approximation: " + piApproximation);
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
         } finally {
             executor.shutdown();
+        }
+    }
+
+    public static void runAndTestScalability() {
+        final int availableCores = Runtime.getRuntime().availableProcessors();
+        List<Integer> threadCounts = new ArrayList<>();
+
+        for (int i = 1; i <= availableCores; i *= 2) {
+            threadCounts.add(i);
+        }
+
+        final int[] terms = { 10000, 100000, 500000, 1000000, 2000000 };
+        final int digits = 7;
+        for (int threadCount : threadCounts) {
+            System.out.println("Testing with " + threadCount + " threads...");
+            long startTime = System.currentTimeMillis();
+            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+            for (int term : terms) {
+                BigDecimal piApproximation = BigDecimal.ZERO;
+                try {
+                    piApproximation = approximatePiParallel(digits, term, executor);
+                    // System.out.println("Pi approximation: " + piApproximation);
+                } catch (Exception e) {
+                    System.out.println("    Error: " + e.getMessage());
+                }
+                long endTime = System.currentTimeMillis();
+                String executionTime = String.format("%.2f", (endTime - startTime) / 1000.0);
+                System.out.println(
+                        "   Terms: " + term + ", Execution time: " + executionTime + " seconds, Pi approximation: "
+                                + piApproximation);
+            }
+            executor.shutdown();
+
         }
     }
 

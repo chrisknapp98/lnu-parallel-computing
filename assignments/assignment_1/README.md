@@ -8,15 +8,17 @@ To approximate Pi using the Bailey-Borwein-Plouffe formula, we define a number o
 
 We split the work being the terms to the amount of cores the machine has available. This guarantees an even distribution of the calculations across all threads. The tasks get submitted to the executer service and are computed. 
 
-Finally, we iterate synchronously over the futures and add the partial sums to the total sum. Since we distributed the work evenly this can happen synchronously perfectly fine as we exepct all tasks to be finished or almost being finised as soon as the first one completed. 
-Thus, the first future of the loop blocks the execution of further code until it completes and by that time most partial sums should be available, so that there's no further waiting. 
-
+Finally, we iterate over the futures in sequence and add the partial sums to the total sum. Since the work was evenly distributed, this sequential processing is efficient, as we expect all tasks to be finished or nearly finished by the time the first one completes. Thus, the processing of the first future in the loop pauses further execution until it completes, but by that time, most partial sums computed in parallel should be available, minimizing any additional waiting. The executer service automatically sends a new task to a free core as soon as the compution has been completed.
 
 ### Run Code
 
-To run the code, you can just execute the main method of problem_1 file/class. Or could just run the publicly available method `approximatePiParallel`. 
-The non-parallel function `approximatePi` is also available.
+To run the code, you can just compile and execute the main method of problem_1 file/class. 
 
+```sh
+javac problem_1.java && java problem_1
+```
+Or could just run the publicly available method `approximatePiParallel`. 
+The non-parallel function `approximatePi` is also available.
 
 ### Results
 
@@ -25,6 +27,35 @@ Both methods are executed with the same parameters being
     - `digits`: 7
     - `terms`: 1000000
 The function `approximatePi` takes 134.848 seconds while `approximatePiParallel` accomplishes to make the calculation in just 4.883 seconds showing a significant difference in performance between both functions. The code was executed on a MacBook Pro with M1 Pro Chip.
+
+Examining the scalibility, we can clearly see that the more cores of a CPU are utilized, the faster the calculation finishes. That applies to a small amount of terms, as well as to large amount of terms. However, we can see that the jump from 4 threads to 8 is not as significant as the jump from 1 to 2 or from 2 to 4. 
+
+```log
+Testing with 1 threads...
+   Terms: 10000, Execution time: 0,07 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,56 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 5,60 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 22,21 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 81,86 seconds, Pi approximation: 3.1415927
+Testing with 2 threads...
+   Terms: 10000, Execution time: 0,01 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,21 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 2,78 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 11,23 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 41,59 seconds, Pi approximation: 3.1415927
+Testing with 4 threads...
+   Terms: 10000, Execution time: 0,01 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,11 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 1,46 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 6,19 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 22,71 seconds, Pi approximation: 3.1415927
+Testing with 8 threads...
+   Terms: 10000, Execution time: 0,01 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,07 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 1,02 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 4,29 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 16,17 seconds, Pi approximation: 3.1415927
+```
 
 
 ## Problem 2 - Applying Filters on an Image 
@@ -46,7 +77,7 @@ For the parallel version, adjust the radius and sigma parameters as desired and 
 ### Results
 The execution times for the Gaussian blur with different radius values were recorded, highlighting the performance benefits of parallel processing. Here's a summary of the observed results:
 
-Run   | Radius    | Sigma | Non-Parallel Execution Time (s)   |   Parallel Execution Time (s) | 
+Run         | Radius    | Sigma | Non-Parallel Execution Time (s)   |   Parallel Execution Time (s) | 
 | --------- | --------- | ----- | --------------------------------- | ----------------------------- | 
 | 1         | 10        | 20.0  | 14.94                             | 3.59                          |
 
