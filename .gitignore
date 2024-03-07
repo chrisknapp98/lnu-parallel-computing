@@ -1,5 +1,12 @@
 .DS_Store
+.idea/
+
+assignments/assignment_1/inputs/
 
 ### Java ###
 # Compiled class file
 *.class
+
+### Python ###
+__pycache__/
+*.pyc
