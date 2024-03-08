@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 
@@ -11,13 +12,83 @@ import javax.imageio.ImageIO;
 public class problem_2 {
 
     public static void main(String[] args) {
-        String fileName = "squidward_painting";
-        String fileExtension = "jpg";
-        // createBlurredImage(fileName, fileExtension);
-        createImageWithSharpEdges(fileName, fileExtension);
+        final String fileName = "squidward_painting";
+        final String fileExtension = "jpg";
+
+        createBlurredImageSerialWithPresetParams(fileName, fileExtension);
+
+        // createImageWithSharpEdgesSerial(fileName, fileExtension);
+
+        // runAndTestScalability(fileName, fileExtension);
     }
 
-    public static void createBlurredImage(String fileName, String fileExtension) {
+    public static void createBlurredImageSerialWithPresetParams(String fileName, String fileExtension) {
+        final int radius = 20;
+        final double sigma = 20.0;
+        createBlurredImage(fileName, fileExtension, radius, sigma, null);
+    }
+
+    public static void createImageWithSharpEdgesSerial(String fileName, String fileExtension) {
+        createImageWithSharpEdges(fileName, fileExtension, null);
+    }
+
+    public static void runAndTestScalability(String fileName, String fileExtension) {
+        final int availableCores = Runtime.getRuntime().availableProcessors();
+        List<Integer> threadCounts = new ArrayList<>();
+
+        for (int i = 1; i <= availableCores; i *= 2) {
+            threadCounts.add(i);
+        }
+
+        testBlurScalability(fileName, fileExtension, threadCounts);
+
+        testEdgeDetectionScalability(fileName, fileExtension, threadCounts);
+    }
+
+    private static void testBlurScalability(
+            String fileName,
+            String fileExtension,
+            List<Integer> threadCounts) {
+        int[] radii = { 1, 5, 7, 10, 20 };
+        double sigma = 20.0;
+        for (int threadCount : threadCounts) {
+            System.out.println("Testing parallel gaussian blur with " + threadCount + " threads...");
+            for (int radius : radii) {
+                ForkJoinPool pool = new ForkJoinPool(threadCount);
+                long startTime = System.currentTimeMillis();
+                createBlurredImage(fileName, fileExtension, radius, sigma, Optional.of(pool));
+                long endTime = System.currentTimeMillis();
+                String executionTime = String.format("%.2f", (endTime - startTime) / 1000.0);
+                System.out.println(
+                        "   Radius: " + radius + ", Execution time: " + executionTime + " seconds");
+                pool.shutdown();
+            }
+        }
+    }
+
+    private static void testEdgeDetectionScalability(
+            String fileName,
+            String fileExtension,
+            List<Integer> threadCounts) {
+        for (int threadCount : threadCounts) {
+            System.out.println("Testing parallel sobel edge detection with " + threadCount + " threads...");
+            ForkJoinPool pool = new ForkJoinPool(threadCount);
+            long startTime = System.currentTimeMillis();
+            createImageWithSharpEdges(fileName, fileExtension, Optional.of(pool));
+            long endTime = System.currentTimeMillis();
+            String executionTime = String.format("%.2f", (endTime - startTime) / 1000.0);
+            System.out.println(
+                    "   Execution time: " + executionTime + " seconds");
+            pool.shutdown();
+        }
+    }
+
+    public static void createBlurredImage(
+            String fileName,
+            String fileExtension,
+            int radius,
+            double sigma,
+            Optional<ForkJoinPool> pool) {
         String inputImagePath = "../assets/" + fileName + "." + fileExtension;
         String outputImagePath = "outputs/" + fileName + "_blurred." + fileExtension;
         BufferedImage inputImage = ImageTools.readImage(inputImagePath);
@@ -25,14 +96,19 @@ public class problem_2 {
             System.out.println("Error: The input image could not be read");
             return;
         }
-        int radius = 20;
-        double sigma = 20.0;
-        // BufferedImage blurredImage = gaussianBlurImage(inputImage, radius, sigma);
-        BufferedImage blurredImage = applyFilterInParallel(inputImage, FilterType.GAUSSIAN_BLUR, radius, sigma);
+        BufferedImage blurredImage;
+        if (pool == null || !pool.isPresent()) {
+            blurredImage = gaussianBlurImage(inputImage, radius, sigma);
+        } else {
+            blurredImage = applyFilterInParallel(inputImage, FilterType.GAUSSIAN_BLUR, radius, sigma, pool.get());
+        }
         ImageTools.writeImage(blurredImage, outputImagePath);
     }
 
-    public static void createImageWithSharpEdges(String fileName, String fileExtension) {
+    public static void createImageWithSharpEdges(
+            String fileName,
+            String fileExtension,
+            Optional<ForkJoinPool> pool) {
         String inputImagePath = "../assets/" + fileName + "." + fileExtension;
         String outputImagePath = "outputs/" + fileName + "_sobel." + fileExtension;
         BufferedImage inputImage = ImageTools.readImage(inputImagePath);
@@ -40,9 +116,13 @@ public class problem_2 {
             System.out.println("Error: The input image could not be read");
             return;
         }
-        // BufferedImage imageWithSharpEdges = applySobelFilter(inputImage);
-        BufferedImage imageWithSharpEdges = applyFilterInParallel(inputImage,
-                FilterType.SOBEL_EDGE_DETECTION, 0, 0);
+        BufferedImage imageWithSharpEdges;
+        if (pool == null || !pool.isPresent()) {
+            imageWithSharpEdges = applySobelFilter(inputImage);
+        } else {
+            imageWithSharpEdges = applyFilterInParallel(inputImage,
+                    FilterType.SOBEL_EDGE_DETECTION, 0, 0, pool.get());
+        }
         ImageTools.writeImage(imageWithSharpEdges, outputImagePath);
     }
 
@@ -82,14 +162,13 @@ public class problem_2 {
             BufferedImage inputImage,
             FilterType filterType,
             int radius,
-            double sigma) {
+            double sigma,
+            ForkJoinPool pool) {
         double[][] kernel = null;
         if (filterType == FilterType.GAUSSIAN_BLUR) {
             kernel = ImageTools.generateGaussianBlurKernel(radius, sigma);
         }
 
-        int cores = Runtime.getRuntime().availableProcessors();
-        ForkJoinPool pool = new ForkJoinPool(cores);
         BufferedImage outputImage = new BufferedImage(inputImage.getWidth(), inputImage.getHeight(),
                 BufferedImage.TYPE_INT_RGB);
 

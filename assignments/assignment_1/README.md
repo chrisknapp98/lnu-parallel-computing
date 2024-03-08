@@ -71,21 +71,62 @@ Since the image is passed to every single task, we have to ensure that the tasks
 
 
 ### Run Code
-To run the code, ensure you have a Java development environment set up with JDK 8 or later. Place your image files in the specified directory (e.g., "../assets/") and adjust the file names in the code accordingly. You can compile the Java files using a command line or an IDE, then run the main class that initiates the image processing tasks.
+To run the code again you'll need Java 8 or newer. The file needs to be compiled and can then be run, similar to problem 1.
 
-For the parallel version, adjust the radius and sigma parameters as desired and observe how the ForkJoinPool distributes the work across multiple threads.
+```sh
+javac problem_2.java && java problem_2
+```
+
+The main method has 3 methods to choose between the two serial implementaions of the algorithms or run the scalability test to get the console logs which can be seen below. 
+
+Also you can just access the static methods from the package after you compile it. The method `createBlurredImage()` let's you blur any image from the assets folder with available parameters. The same applies to the `createImageWithSharpEdges()` method. If the parallel algorithm should not be executed, then simply pass a `null` ForkJoinPool. Otherwise create it, set the amount of cores to utilize and then pass the parameter to the methods.
 
 ### Results
 The execution times for the Gaussian blur with different radius values were recorded, highlighting the performance benefits of parallel processing. Here's a summary of the observed results:
 
-Run         | Radius    | Sigma | Non-Parallel Execution Time (s)   |   Parallel Execution Time (s) | 
-| --------- | --------- | ----- | --------------------------------- | ----------------------------- | 
-| 1         | 10        | 20.0  | 14.94                             | 3.59                          |
+```log
+Testing parallel gaussian blur with 1 threads...
+   Radius: 1, Execution time: 0,68 seconds
+   Radius: 5, Execution time: 4,31 seconds
+   Radius: 7, Execution time: 7,60 seconds
+   Radius: 10, Execution time: 14,46 seconds
+   Radius: 20, Execution time: 53,81 seconds
+Testing parallel gaussian blur with 2 threads...
+   Radius: 1, Execution time: 0,55 seconds
+   Radius: 5, Execution time: 2,46 seconds
+   Radius: 7, Execution time: 4,16 seconds
+   Radius: 10, Execution time: 7,82 seconds
+   Radius: 20, Execution time: 28,44 seconds
+Testing parallel gaussian blur with 4 threads...
+   Radius: 1, Execution time: 0,56 seconds
+   Radius: 5, Execution time: 1,46 seconds
+   Radius: 7, Execution time: 2,36 seconds
+   Radius: 10, Execution time: 4,19 seconds
+   Radius: 20, Execution time: 14,72 seconds
+Testing parallel gaussian blur with 8 threads...
+   Radius: 1, Execution time: 0,53 seconds
+   Radius: 5, Execution time: 1,30 seconds
+   Radius: 7, Execution time: 1,65 seconds
+   Radius: 10, Execution time: 3,00 seconds
+   Radius: 20, Execution time: 10,41 seconds
+```
 
-The results clearly demonstrate the efficiency of parallelizing the Gaussian blur operation. With a radius of 10 and a sigma of 20.0, the parallelized version of the code executes significantly faster than the non-parallel version, reducing the execution time by approximately 76%.
-A higher radius leads to significantly longer execution time the impact of sigma seems to have a lower impact.
+The results clearly demonstrate the efficiency of parallelizing the Gaussian blur operation. We see that stepping up to utilizing 2 and also 4 cores brings significant performance improvements. However, at the same time, even though the numbers are lower in all cases, we notice that the numbers at 8 threads are not as impressive as the other two thread bumps. Still running the algorithm in this implementation in parallel always brings us a benefit. It might be interesting to see the performance on a machine with more than 8 cores to see how it scales there.
 
-For the Sobel filter, running the calculations in parallel results in only slight improvements. This is primarily due to the inherently lower complexity of the Sobel filter algorithm compared to the Gaussian blur. The Gaussian blur's computational load can be significantly increased by parameters such as `radius`, which directly impacts the size of the convolution kernel and, consequently, the number of calculations required per pixel. In contrast, the Sobel filter uses a fixed-size kernel (typically 3x3), leading to a relatively consistent and lower computational load regardless of the image size. Therefore the overhead associated with managing parallel tasks can offset the gains from distributing this workload across multiple processors.
+For the Sobel filter, running the calculations in parallel results in only slight improvements. This is primarily due to the inherently lower complexity of the Sobel filter algorithm compared to the Gaussian blur as can be seen in the following numbers. 
+
+```log 
+Testing parallel sobel edge detection with 1 threads...
+   Execution time: 0,66 seconds
+Testing parallel sobel edge detection with 2 threads...
+   Execution time: 0,56 seconds
+Testing parallel sobel edge detection with 4 threads...
+   Execution time: 0,54 seconds
+Testing parallel sobel edge detection with 8 threads...
+   Execution time: 0,54 seconds
+```
+
+The Gaussian blur's computational load can be significantly increased by parameters such as `radius`, which directly impacts the size of the convolution kernel and, consequently, the number of calculations required per pixel. In contrast, the Sobel filter uses a fixed-size kernel (typically 3x3), leading to a relatively consistent and lower computational load regardless of the image size. Therefore the overhead associated with managing parallel tasks can offset the gains from distributing this workload across multiple processors.
 
 
 ## Problem 3 - Sorting
