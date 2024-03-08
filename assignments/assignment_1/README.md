@@ -87,6 +87,110 @@ A higher radius leads to significantly longer execution time the impact of sigma
 For the Sobel filter, running the calculations in parallel results in only slight improvements. This is primarily due to the inherently lower complexity of the Sobel filter algorithm compared to the Gaussian blur. The Gaussian blur's computational load can be significantly increased by parameters such as `radius`, which directly impacts the size of the convolution kernel and, consequently, the number of calculations required per pixel. In contrast, the Sobel filter uses a fixed-size kernel (typically 3x3), leading to a relatively consistent and lower computational load regardless of the image size. Therefore the overhead associated with managing parallel tasks can offset the gains from distributing this workload across multiple processors.
 
 
+## Problem 3 - Sorting
+
+### Description
+
+To sort numbers sequentially, we decided to use quicksort. The selection of the pivot value is simplified and uses always the list element located at the index equalling half of the size of the whole list. Afterwards, we build three lists: on for the elements less than the pivot value, one for the elements equalling the pivot value and one for all greater values. For the result list, we call the method recursive and add the results in the order less-equal-greater to the result list.
+
+The parallel version uses the same algorithm but creates a task for each recursive call except for the "equal" list. Like that, the branching has to reach a specific amount of recursive calls that all threads can be used efficiently. Depending on the size of the ordered list, this can be an issue.
+
+### Run code
+
+To run the code, execute the main method of the file problem_3.java. The example code sorts all the instances located in the `inputs` folder. To run your own instances simply add them to the folder and adjust the loops in the main method.
+
+The main method executes both sequential quicksort and parallel quicksort for all of the json files and produces the output you can see in the `Results` section.
+
+### Results
+
+The intention of using quicksort in parallel was mainly the easy implementation. After implementing sequential quicksort it wasn't hard to add the recursive calls as a task to a threadpool. We chose to generate different number arrays, especially with different amounts of numbers. To decrease the randomness of the results, we also created multiple instances of the same size.
+
+We tested number arrays of the sizes 1.000, 10.000, 100.000, 1.000.000 and 10.000.000. The results are displayed below. Note that every line uses a different number array of the specified size so the computing times may differ for the same instance size.
+
+```
+Instance size 10^3
+
+Quicksort: 4.008143 ms,  Parallel quicksort: 6.940235 ms
+Quicksort: 1.244997 ms,  Parallel quicksort: 3.111935 ms
+Quicksort: 1.29242 ms,  Parallel quicksort: 2.514369 ms
+Quicksort: 1.479525 ms,  Parallel quicksort: 4.888776 ms
+Quicksort: 0.759597 ms,  Parallel quicksort: 2.508852 ms
+
+Instance size 10^4
+
+Quicksort: 11.109433 ms,  Parallel quicksort: 34.553322 ms
+Quicksort: 9.438751 ms,  Parallel quicksort: 32.310287 ms
+Quicksort: 9.688016 ms,  Parallel quicksort: 32.958697 ms
+Quicksort: 9.614682 ms,  Parallel quicksort: 35.071267 ms
+Quicksort: 6.95148 ms,  Parallel quicksort: 34.046481 ms
+
+Instance size 10^5
+
+Quicksort: 90.101464 ms,  Parallel quicksort: 48.135499 ms
+Quicksort: 71.562276 ms,  Parallel quicksort: 23.274174 ms
+Quicksort: 94.281767 ms,  Parallel quicksort: 27.950352 ms
+Quicksort: 46.173227 ms,  Parallel quicksort: 20.438602 ms
+Quicksort: 43.050188 ms,  Parallel quicksort: 19.026892 ms
+
+Instance size 10^6
+
+Quicksort: 899.456967 ms,  Parallel quicksort: 417.058267 ms
+Quicksort: 679.049409 ms,  Parallel quicksort: 393.423572 ms
+Quicksort: 857.422417 ms,  Parallel quicksort: 405.725551 ms
+Quicksort: 918.313865 ms,  Parallel quicksort: 321.428626 ms
+Quicksort: 769.352086 ms,  Parallel quicksort: 360.956001 ms
+
+Instance size 10^7
+
+Quicksort: 9367.066654 ms,  Parallel quicksort: 5834.915436 ms
+Quicksort: 9699.654091 ms,  Parallel quicksort: 6326.136813 ms
+Quicksort: 9545.941334 ms,  Parallel quicksort: 5719.366675 ms
+Quicksort: 9157.800585 ms,  Parallel quicksort: 5346.055685 ms
+Quicksort: 9665.90311 ms,  Parallel quicksort: 5485.32847 ms
+```
+
+For the small instances (10^3 and 10^4), the parallel implementation of quicksort has a worse runtime that is about 3-4 times the runtime of sequential quicksort. That's because it takes some time for the parallel algorithm to use all available threads and also to start and stop each thread.
+
+If the instances get bigger than 10^5 the parallel algorithm is able to perform better than the sequential one. For our biggest test instances the runtime is reduced by about 40% compared to the runtime of non-parallel quicksort.
+
+If we compare our parallel algorithm to the `ArrayList.sort()` method provided by java, we get the following results:
+
+```
+Instance size 10^4
+
+Quicksort: 9.701575 ms,  Parallel quicksort: 26.231786 ms
+Quicksort: 4.405686 ms,  Parallel quicksort: 24.644772 ms
+Quicksort: 4.591745 ms,  Parallel quicksort: 23.214903 ms
+Quicksort: 4.073868 ms,  Parallel quicksort: 25.01207 ms
+Quicksort: 2.756654 ms,  Parallel quicksort: 22.5139 ms
+
+Instance size 10^5
+
+Quicksort: 58.132135 ms,  Parallel quicksort: 53.088445 ms
+Quicksort: 48.505361 ms,  Parallel quicksort: 35.292074 ms
+Quicksort: 23.492104 ms,  Parallel quicksort: 29.336949 ms
+Quicksort: 18.581951 ms,  Parallel quicksort: 20.434083 ms
+Quicksort: 17.661437 ms,  Parallel quicksort: 24.124451 ms
+
+Instance size 10^6
+
+Quicksort: 401.449706 ms,  Parallel quicksort: 320.617472 ms
+Quicksort: 349.680641 ms,  Parallel quicksort: 276.659366 ms
+Quicksort: 345.675776 ms,  Parallel quicksort: 308.186272 ms
+Quicksort: 344.035474 ms,  Parallel quicksort: 353.151076 ms
+Quicksort: 339.278134 ms,  Parallel quicksort: 334.684993 ms
+
+Instance size 10^7
+
+Quicksort: 5633.891551 ms,  Parallel quicksort: 4455.017274 ms
+Quicksort: 5669.133478 ms,  Parallel quicksort: 4378.58507 ms
+Quicksort: 5599.318218 ms,  Parallel quicksort: 4953.55837 ms
+Quicksort: 5625.694436 ms,  Parallel quicksort: 4250.218694 ms
+Quicksort: 5593.994184 ms,  Parallel quicksort: 4842.877945 ms
+```
+
+We can see that the algorithm is faster than our implementation of sequential quicksort. Nevertheless, the parallel algorithm performs better for the biggest lists of numbers. The sequential algorithm is better for some instances until the size of 10^6 but loses more and more of its advantage until its runtime is worse for every single one of the given test instances for the size 10^7. There we get a performance boost of about 15-20%.
+
 ## Problem 4 - Iterative Solver
 
 ### Description
