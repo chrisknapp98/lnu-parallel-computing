@@ -253,16 +253,14 @@ To run the code, just execute the files main method, or call the modules `gauss_
 
 Overall, we can see significant improvements with the parallelization. However, the results might not be what we expect at first thought. 
 
-- Chessboard Strategy: 
-  - we can clearly see that if our grid size is ≤ 500, then an increased number of threads is not beneficial and even leads to increased execution times. But if the grid size is higher than that, then execution times get significantly lower. The reason for this is that a thread should have enough work to compute in order to overshadow the cost of creating a new thread. 
-  - in conclusion we can say, that this algorithm and this implementation only scale well with more threads if the grid size also is higher than a respective value
-- Parallelized version of provided code:
-  - here we don't see such a threshold needed to be past in order to be worth the overhead of the parallelism. 
-  - for very low grid sizes it performs slightly better than the chessboard approach, but for higher grid sizes it's a lot less performant.
-
 Below we can see the execution times with different thread numbers and grid sizes. We get consistent results ±1sec running the code on a MacBook Pro with M1 Pro chip.
 
 #### Chessboard Strategy
+
+We can clearly see that if our grid size is ≤ 500, then an increased number of threads is not beneficial and even leads to increased execution times. But if the grid size is higher than that, then execution times get significantly lower. The reason for this is that a thread should have enough work to compute in order to overshadow the cost of creating a new thread. 
+
+In conclusion we can say, that this algorithm and this implementation only scale well with more threads if the grid size also is higher than a respective value
+
 ```log
 Testing with 1 threads...
   Grid Size: 100x100, Execution Time: 0.24 seconds, after 2904 iterations, residual = 4.993483841261299e-05
@@ -291,6 +289,9 @@ Testing with 8 threads...
 ```
 
 #### Parallelized version of the provided code
+
+Here we don't see such a threshold needed to be past in order to be worth the overhead of the parallelism. For very low grid sizes it performs slightly better than the chessboard approach, but for higher grid sizes it's a lot less performant.
+
 ```log 
 Testing with 1 threads...
   Grid Size: 100x100, Execution Time: 0.20 seconds, after 2902 iterations, residual = 4.99338287640659e-05
