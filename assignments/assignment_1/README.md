@@ -32,29 +32,30 @@ Examining the scalibility, we can clearly see that the more cores of a CPU are u
 
 ```log
 Testing with 1 threads...
-   Terms: 10000, Execution time: 0,07 seconds, Pi approximation: 3.1415927
-   Terms: 100000, Execution time: 0,56 seconds, Pi approximation: 3.1415927
-   Terms: 500000, Execution time: 5,60 seconds, Pi approximation: 3.1415927
-   Terms: 1000000, Execution time: 22,21 seconds, Pi approximation: 3.1415927
-   Terms: 2000000, Execution time: 81,86 seconds, Pi approximation: 3.1415927
+   Terms: 10000, Execution time: 0,10 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,47 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 5,02 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 16,67 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 59,57 seconds, Pi approximation: 3.1415927
 Testing with 2 threads...
    Terms: 10000, Execution time: 0,01 seconds, Pi approximation: 3.1415927
-   Terms: 100000, Execution time: 0,21 seconds, Pi approximation: 3.1415927
-   Terms: 500000, Execution time: 2,78 seconds, Pi approximation: 3.1415927
-   Terms: 1000000, Execution time: 11,23 seconds, Pi approximation: 3.1415927
-   Terms: 2000000, Execution time: 41,59 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,19 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 2,58 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 8,42 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 30,24 seconds, Pi approximation: 3.1415927
 Testing with 4 threads...
    Terms: 10000, Execution time: 0,01 seconds, Pi approximation: 3.1415927
-   Terms: 100000, Execution time: 0,11 seconds, Pi approximation: 3.1415927
-   Terms: 500000, Execution time: 1,46 seconds, Pi approximation: 3.1415927
-   Terms: 1000000, Execution time: 6,19 seconds, Pi approximation: 3.1415927
-   Terms: 2000000, Execution time: 22,71 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,10 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 1,38 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 4,51 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 16,39 seconds, Pi approximation: 3.1415927
 Testing with 8 threads...
    Terms: 10000, Execution time: 0,01 seconds, Pi approximation: 3.1415927
-   Terms: 100000, Execution time: 0,07 seconds, Pi approximation: 3.1415927
-   Terms: 500000, Execution time: 1,02 seconds, Pi approximation: 3.1415927
-   Terms: 1000000, Execution time: 4,29 seconds, Pi approximation: 3.1415927
-   Terms: 2000000, Execution time: 16,17 seconds, Pi approximation: 3.1415927
+   Terms: 100000, Execution time: 0,08 seconds, Pi approximation: 3.1415927
+   Terms: 500000, Execution time: 0,92 seconds, Pi approximation: 3.1415927
+   Terms: 1000000, Execution time: 3,12 seconds, Pi approximation: 3.1415927
+   Terms: 2000000, Execution time: 11,41 seconds, Pi approximation: 3.1415927
+
 ```
 
 

@@ -43,9 +43,9 @@ public class problem_1 {
         final int digits = 7;
         for (int threadCount : threadCounts) {
             System.out.println("Testing with " + threadCount + " threads...");
-            long startTime = System.currentTimeMillis();
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             for (int term : terms) {
+                long startTime = System.currentTimeMillis();
                 BigDecimal piApproximation = BigDecimal.ZERO;
                 try {
                     piApproximation = approximatePiParallel(digits, term, executor);
