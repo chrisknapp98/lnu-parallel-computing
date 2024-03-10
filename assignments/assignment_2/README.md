@@ -31,7 +31,7 @@ The parameter n defines the number of instances to use for the calculation.
 The results of the calculation can be seen in the following table. We compare the sequential runtime to the runs using mpi 
 with different values for the n parameter that defines the number of mpi instances.
 
-n | 10.000 | 100.000 | 250.000 | 500.000 | 750.000
+n | 10.000 (s) | 100.000 (s) | 250.000 (s) | 500.000 (s) | 750.000 (s)
 --|--|--|--|--|--
 seq| 0.03 | 0.59 | 7.35 | 43.95 | 93.90
 1| 0.03 | 0.60 | 7.51 | 43.64 | 92.86
@@ -55,3 +55,55 @@ The optimal number of instances is at about 12, which is also the amount of kern
 
 ## Problem 3 - Sorting
 
+### Description
+
+We used our algorithm of assignment 1 and translated it to python to use mpi4py. The sequential algorithm is still quicksort with the pivot value at the index equalling half the list size.
+
+To parallelize this algorithm we have to keep track of the communication between the single instances. That's why we decided to distribute the list into equal parts and give each instance a part of the original list to sort. After that sorting, the mpi instance with rank 0 gathers the results and merges the single sorted lists together by searching for the smallest first item of all the sorted lists and then adding it to the result.
+
+### Run code
+
+Like in assignment 1, we use random generated lists with different sizes to measure the runtime. The lists are located in the inputs folder and have to look like the file `random_integers.json` (located inside this folder).
+
+The main function of the file iterates over multiple of these files with special names so it might be necessary to either create files with the same names or change the logic of the loops.
+
+To run the code use this command again
+
+```sh
+mpiexec -n 4 problem_3.py
+```
+
+and adjust the number of instances by changing the n parameter. 
+
+### Results
+
+We get the different results by outputs looking like that:
+
+```
+Instance size 10^3
+
+Quicksort: 0.11 ms, Parallel quicksort: 21.39 ms
+Quicksort: 0.08 ms, Parallel quicksort: 7.80 ms
+Quicksort: 0.08 ms, Parallel quicksort: 15.55 ms
+Quicksort: 0.09 ms, Parallel quicksort: 8.30 ms
+Quicksort: 0.08 ms, Parallel quicksort: 14.90 ms
+```
+
+To keep track of all the different results also with multiple values for the n parameter, we calculated the averages of all five results and put them into the following table.
+
+| n        | 10^3 (ms) | 10^4 (ms) | 10^5 (ms) |
+|----------|-----------|-----------|-----------|
+| Sequential | 1.05      | 12.33     | 168.55    |
+| Sorted   | 0.07      | 0.95      | 14.44     |
+| 1        | 1.67      | 22.38     | 831.77    |
+| 2        | 1.13      | 14.12     | 401.07    |
+| 4        | 0.97      | 9.42      | 217.74    |
+| 8        | 1.59      | 13.04     | 216.68    |
+| 12       | 2.25      | 15.51     | 212.19    |
+| 16       | 14.12      | 48.73     | 356.20    |
+
+The results of this parallelization is not really good. For small number of instances, the effort for the list splitting and merging is bigger than the improvements of the parallel work so we just increase runtime. We have a optimum with slight improvements for the smaller list at `n=4`. With higher n values we keep increasing the runtime, also because it gets more complicated to merge the lists when finishing the sorting. If we compare the runtime to the already predefined `sorted` function in python, there is no reason to parallelize the sorting algorithm because the predefined version is so much faster.
+
+Compared to assignment 1 and using a threadpool to add the single recursive tasks to this pool, the parallel version of quicksort using mpi is just not meaningful. The communication inside a threadpool is so much easier so a new task can be instantly started after finishing one. With mpi, we firstly needed to simplify the parallelization of the algorithm, and then do the not optimal merging between the lists that only one mpi instance can do, so we have a lot of effort for the branch and bound of the task and wait for single instances to finish their work which slows the whole algorithm down.
+
+## Problem 4 - Iterative Solver
