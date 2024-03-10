@@ -3,6 +3,7 @@ import numpy as np
 from math import exp, sqrt
 import os
 from numba import njit, prange
+from mpi4py import MPI
 
 # Adjusted for script directory usage
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -124,6 +125,69 @@ def apply_sobel_filter_parallel(img_array):
             edges_img[y, x] = magnitude
     return edges_img
 
+def distribute_chunks_with_overlap(img_array, size, radius):
+    height = img_array.shape[0]
+    chunk_height = height // size
+    chunks = []
+    for i in range(size):
+        start = i * chunk_height - radius if i > 0 else 0
+        end = (i + 1) * chunk_height + radius if i < size - 1 else height
+        chunks.append(img_array[start:end])
+    return chunks
+
+def trim_and_concatenate_chunks(chunks, radius):
+    trimmed_chunks = [chunk[radius:-radius] if i not in [0, len(chunks)-1] else chunk for i, chunk in enumerate(chunks)]
+    return np.concatenate(trimmed_chunks, axis=0)
+
+def apply_gaussian_blur_chunk(img_array, kernel, radius):
+    print(f"Starting blur chunk operation...")
+    height, width = img_array.shape[:2]
+    blurred_img = np.zeros_like(img_array)
+    for y in range(height):
+        for x in range(width):
+            if y % 100 == 0 and x == 0:  # Print progress for every 100th row
+                print(f"Processing row {y}...")
+            for c in range(3):
+                sum_val = 0.0
+                for ky in range(-radius, radius + 1):
+                    for kx in range(-radius, radius + 1):
+                        py = min(max(y + ky, 0), height - 1)
+                        px = min(max(x + kx, 0), width - 1)
+                        sum_val += img_array[py, px, c] * kernel[ky + radius, kx + radius]
+                blurred_img[y, x, c] = sum_val
+    print(f"Finished blur chunk operation.")
+    return blurred_img
+
+
+def parallel_gaussian_blur(image_path, output_path, radius, sigma):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    if rank == 0:
+        image = read_image(image_path).convert('RGB')
+        img_array = np.array(image)
+        # chunks = np.array_split(img_array, size, axis=0)
+        chunks = distribute_chunks_with_overlap(img_array, size, radius)
+    else:
+        chunks = None
+
+    chunk = comm.scatter(chunks, root=0)
+    kernel = generate_gaussian_blur_kernel(radius, sigma)
+    blurred_chunk = apply_gaussian_blur_chunk(chunk, kernel, radius)
+    # blurred_chunk = chunk * (rank + 1)  # Simple operation for testing
+    blurred_chunks = comm.gather(blurred_chunk, root=0)
+
+    if rank == 0:
+        # Only the root process will execute this block
+        blurred_img_array = trim_and_concatenate_chunks(blurred_chunks, radius)
+        blurred_image = Image.fromarray(blurred_img_array.astype('uint8'), 'RGB')
+        write_image(blurred_image, output_path)
+    else:
+        # It's good practice to explicitly acknowledge the behavior for non-root ranks, even if it's just a pass statement.
+        pass
+
+
 def create_blurred_image(image_path, output_path, radius, sigma, parallel):
     input_image = read_image(image_path)
     if input_image is None:
@@ -151,5 +215,7 @@ if __name__ == "__main__":
 
     parallel = True
 
-    create_blurred_image(input_image_path, output_blurred_path, 20, 20.0, parallel)
-    create_image_with_sharp_edges(input_image_path, output_edges_path, parallel)
+    # create_blurred_image(input_image_path, output_blurred_path, 20, 20.0, parallel)
+    # create_image_with_sharp_edges(input_image_path, output_edges_path, parallel)
+
+    parallel_gaussian_blur(input_image_path, output_blurred_path, 2, 20.0)
