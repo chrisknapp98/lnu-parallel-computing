@@ -6,11 +6,10 @@ from gmpy2 import mpz
 def approximate_pi(digits, terms):
     if digits < 0:
         raise ValueError("The number of digits must be non-negative")
-    decimal.getcontext().prec = max(digits + 1, 15)
     sum = mpz(0)
     for k in range(terms):
         sum = bailey_borwein_plouf(sum, k)
-    return round(sum, digits)
+    return sum
 
 def approximate_pi_parallel(start, end):
     sum = mpz(0)
@@ -29,8 +28,6 @@ def bailey_borwein_plouf(sum, k):
     sum = sum + term
     return sum
 
-
-
 def run_with_given_params(digits, terms):
     try:
         pi_approximation = approximate_pi(digits, terms)
@@ -39,7 +36,6 @@ def run_with_given_params(digits, terms):
         print("Error: ", str(e))
 
 def run_and_test_scalability(digits):
-    decimal.getcontext().prec = max(digits + 1, 15)
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
