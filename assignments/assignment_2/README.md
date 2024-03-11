@@ -80,16 +80,19 @@ mpiexec -n 8 python problem_2.py
 
 #### Gaussian Blur
 
-In the sequential approach, where the code runs synchronously, the execution time increases modestly as the radius increases, starting from 14.90 seconds for a radius of 1 and going up to 16.52 seconds for a radius of 9. This gradual increase is expected because a larger radius means more data points are involved in the calculations for each pixel's blur effect, leading to slightly longer execution times.
+In the sequential approach, where the code runs synchronously, the execution time increases modestly as the radius increases, starting from 15.17 seconds for a radius of 1 and going up to 23.41 seconds for a radius of 20. This gradual increase is expected because a larger radius means more data points are involved in the calculations for each pixel's blur effect, leading to slightly longer execution times.
+
+We have to note that compared to the implementation in Java from assignment 1, the execution times start being quite long with 15.17 seconds compared to 0,68 seconds. However, the execution times increase significantly less with higher radii. With a radius of 20 in the python implementation we get an execution time of 23.41 seconds, while it is 53,81 seconds in the Java implementation, what is very surprising.
 
 | Execution Mode | Threads/Processes | Radius | Execution Time (s) |
 | -------------- | ----------------- | ------ | ------------------ |
-| Sequential     | N/A               | 1      | 14.90              |
-| Sequential     | N/A               | 3      | 15.30              |
-| Sequential     | N/A               | 5      | 15.67              |
-| Sequential     | N/A               | 7      | 16.01              |
-| Sequential     | N/A               | 9      | 16.52              |
+| Sequential     | N/A               | 1      | 15.17              |
+| Sequential     | N/A               | 5      | 16.02              |
+| Sequential     | N/A               | 7      | 16.35              |
+| Sequential     | N/A               | 10     | 17.51              |
+| Sequential     | N/A               | 20     | 23.41              |
 
+Since the execution times in the prallel MPI version are substantually higher, we chose to use lower radii than the ones above for the comparison.
 The use of Numba for parallel execution dramatically improves performance, showcasing the benefits of parallel computing. With just 1 thread, the execution times are significantly reduced compared to the sequential execution, starting at 0.75 seconds for radius 1 and reaching up to 2.05 seconds for radius 9. This already represents a substantial improvement.
 Increasing the number of threads further decreases the execution time. With 2 threads, the execution time for radius 1 drops to 0.07 seconds, and with 8 threads, it remains low at 0.05 seconds for the same radius. For larger radii, the execution times also decrease with more threads, demonstrating excellent scalability with the number of threads up to 8, where execution time for radius 9 is just 0.38 seconds.
 
