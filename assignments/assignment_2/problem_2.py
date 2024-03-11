@@ -1,8 +1,9 @@
+import time
 from PIL import Image
 import numpy as np
 from math import exp, sqrt
 import os
-from numba import njit, prange
+from numba import njit, prange, set_num_threads
 from mpi4py import MPI
 
 # Adjusted for script directory usage
@@ -161,8 +162,7 @@ def apply_gaussian_blur_chunk(img_array, kernel, radius):
                 blurred_img[y, x, c] = sum_val
     return blurred_img
 
-
-def parallel_gaussian_blur(image_path, output_path, radius, sigma):
+def apply_gaussian_blur_mpi(image_path, output_path, radius, sigma):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -187,9 +187,7 @@ def parallel_gaussian_blur(image_path, output_path, radius, sigma):
         blurred_image = Image.fromarray(blurred_img_array.astype('uint8'), 'RGB')
         write_image(blurred_image, output_path)
     else:
-        # It's good practice to explicitly acknowledge the behavior for non-root ranks, even if it's just a pass statement.
         pass
-
 
 def create_blurred_image(image_path, output_path, radius, sigma, parallel):
     input_image = read_image(image_path)
@@ -208,6 +206,45 @@ def create_image_with_sharp_edges(image_path, output_path, parallel):
     edges_image = apply_sobel(input_image, parallel)
     write_image(edges_image.convert('RGB'), output_path)  # Convert grayscale to RGB before saving
 
+def run_and_test_mpi_scalability(image_path, output_path):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    sigma = 20.0
+    for radius in [1, 3, 5, 7, 9]:
+        if rank == 0:
+            start_time = time.time()
+            print(f"Running with {size} processes and radius {radius}...")
+
+        apply_gaussian_blur_mpi(image_path, output_path, radius, sigma)
+
+        if rank == 0:
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(f"    Execution time: {execution_time:.2f} seconds")
+            
+def run_and_test_serial_scalability(image_path, output_path):
+    sigma = 20.0
+    # for radius in [1, 3, 5, 7, 9]:
+    for radius in [1, 5, 7, 10, 20]:
+        start_time = time.time()
+        print(f"Running with radius {radius}...")
+        create_blurred_image(image_path, output_path, radius, sigma, False)
+        execution_time = time.time() - start_time
+        print(f"    Execution time: {execution_time:.2f} seconds")
+
+def run_and_test_numba_parallel_scalability(image_path, output_path):
+    sigma = 20.0
+    thread_counts = [1, 2, 4, 8]
+    for num_threads in thread_counts:
+        set_num_threads(num_threads)
+        print(f"Running with {num_threads} threads...")
+        for radius in [1, 3, 5, 7, 9]:
+            start_time = time.time()
+            create_blurred_image(image_path, output_path, radius, sigma, True)
+            execution_time = time.time() - start_time
+            print(f"    Execution time: {execution_time:.2f} seconds, radius {radius}")
 
 if __name__ == "__main__":
     file_name = "squidward_painting"
@@ -216,9 +253,13 @@ if __name__ == "__main__":
     output_blurred_path = os.path.join(script_dir, 'outputs', f"{file_name}_blurred.{file_extension}")
     output_edges_path = os.path.join(script_dir, 'outputs', f"{file_name}_sobel.{file_extension}")
 
+    radius = 9
+    sigma = 20.0
     parallel = True
 
-    # create_blurred_image(input_image_path, output_blurred_path, 20, 20.0, parallel)
+    # create_blurred_image(input_image_path, output_blurred_path, radius, sigma, parallel)
     # create_image_with_sharp_edges(input_image_path, output_edges_path, parallel)
 
-    parallel_gaussian_blur(input_image_path, output_blurred_path, 2, 20.0)
+    # run_and_test_mpi_scalability(input_image_path, output_blurred_path)
+    run_and_test_serial_scalability(input_image_path, output_blurred_path)
+    # run_and_test_numba_parallel_scalability(input_image_path, output_blurred_path)

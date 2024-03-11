@@ -51,6 +51,184 @@ The optimal number of instances is at about 12, which is also the amount of kern
 
 ## Problem 2 - Applying Filters on an Image
 
+### Description
+
+#### Gaussian Blur 
+
+As we decided to implement the MPI problems in python, first we implemented the gaussuan blur sequentially without parallelization. Then, for curiosity we also implemented a shared memory version using numba. Compared to the java implementation from aissignment 1 it performed way better and that shows how well optimized the numba module is.
+Then it was time to implement a parallel version with the MPI approach. The image is read, a numpy array is being created from that and then we have to split the image into chunks in order to distribute fractions of the image to different workers. Even though a worker only gets a specific area of the image, still those areas need to overlap with other areas to compute the ideal blurred image. That's what the `distribute_chunks_with_overlap` method takes care of. The chunks are being distributed through `comm.scatter(chunks, root=0)` and the blur is applied to each single chunk. The results from each worker are being collected through `comm.gather(blurred_chunk, root=0)` and afterwards the overlapping parts need to be trimmed. Finally, the image needs to be created from the array and written to the target destination. 
+
+#### Sobel Edge Detection
+
+### Run Code 
+
+The script contains a sequential implementation, as well as a parallel numba implemenetation and a parallel MPI implementation.
+
+To run the sequential code or the numba code just run it through 
+
+```sh 
+python problem_2.py
+```
+
+To run the MPI version though it's important to have `open-mpi` installed. Then it can be run through the code below, while flag n sets the number of cores to use.
+
+```sh
+mpiexec -n 8 python problem_2.py
+```
+
+### Results 
+
+#### Gaussian Blur
+
+In the sequential approach, where the code runs synchronously, the execution time increases modestly as the radius increases, starting from 14.90 seconds for a radius of 1 and going up to 16.52 seconds for a radius of 9. This gradual increase is expected because a larger radius means more data points are involved in the calculations for each pixel's blur effect, leading to slightly longer execution times.
+
+| Execution Mode | Threads/Processes | Radius | Execution Time (s) |
+| -------------- | ----------------- | ------ | ------------------ |
+| Sequential     | N/A               | 1      | 14.90              |
+| Sequential     | N/A               | 3      | 15.30              |
+| Sequential     | N/A               | 5      | 15.67              |
+| Sequential     | N/A               | 7      | 16.01              |
+| Sequential     | N/A               | 9      | 16.52              |
+
+The use of Numba for parallel execution dramatically improves performance, showcasing the benefits of parallel computing. With just 1 thread, the execution times are significantly reduced compared to the sequential execution, starting at 0.75 seconds for radius 1 and reaching up to 2.05 seconds for radius 9. This already represents a substantial improvement.
+Increasing the number of threads further decreases the execution time. With 2 threads, the execution time for radius 1 drops to 0.07 seconds, and with 8 threads, it remains low at 0.05 seconds for the same radius. For larger radii, the execution times also decrease with more threads, demonstrating excellent scalability with the number of threads up to 8, where execution time for radius 9 is just 0.38 seconds.
+
+The performance of the Gaussian blur using MPI for parallel execution, surprisingly, does not follow the trend seen with Numba. Despite parallelizing the computation across multiple processes, the execution times are significantly longer than both the sequential and Numba parallel executions.
+For instance, running the operation with a single process (which essentially simulates a sequential execution in an MPI framework) yields a much higher execution time of 31.83 seconds for radius 1 and even longer for radius 3, at 158.23 seconds, before the process was manually aborted due to excessive duration.
+Even when increasing the number of processes to 2 and 4, the execution times, although improved, remain much higher than the Numba parallel execution. For example, with 4 processes, the execution time for radius 1 is 8.39 seconds, and for radius 9, it escalates to 301.70 seconds. The performance does improve as the number of processes increases to 8, but the execution times are still not competitive with the Numba implementation, marking 5.29 seconds for radius 1 and 195.39 seconds for radius 9.
+
+### Parallel Execution Efficiency Comparison
+
+| Configuration   | Radius 1         | Radius 3         | Radius 5         | Radius 7         | Radius 9         |
+| --------------- | ---------------- | ---------------- | ---------------- | ---------------- | ---------------- |
+| Sequential      | 14.90s           | 15.30s           | 15.67s           | 16.01s           | 16.52s           |
+| Numba 1 Thread  | 0.75s (-94.96%)  | 0.32s (-97.91%)  | 0.72s (-95.41%)  | 1.28s (-92.00%)  | 2.05s (-87.56%)  |
+| Numba 2 Threads | 0.07s (-99.53%)  | 0.17s (-98.89%)  | 0.39s (-97.51%)  | 0.67s (-95.81%)  | 1.06s (-93.59%)  |
+| Numba 4 Threads | 0.05s (-99.66%)  | 0.11s (-99.28%)  | 0.21s (-98.66%)  | 0.38s (-97.63%)  | 0.57s (-96.55%)  |
+| Numba 8 Threads | 0.05s (-99.66%)  | 0.09s (-99.41%)  | 0.16s (-98.98%)  | 0.26s (-98.38%)  | 0.38s (-97.70%)  |
+| MPI 1 Process   | 31.83s (+113%)   | 158.23s (+933%)  | -                | -                | -                |
+| MPI 2 Processes | 16.47s (+10.48%) | 81.36s (+431%)   | 196.96s (+1153%) | -                | -                |
+| MPI 4 Processes | 8.39s (-43.69%)  | 42.03s (+174%)   | 100.80s (+542%)  | 187.10s (+1067%) | 301.70s (+1725%) |
+| MPI 8 Processes | 5.29s (-64.50%)  | 25.76s (+68.56%) | 62.57s (+298%)   | 120.31s (+651%)  | 195.39s (+1082%) |
+
+* "-" indicates the execution was manually aborted due to excessive duration.
+* Percentage changes are calculated relative to the sequential execution time for the same radius.
+
+The contrast in performance between Numba and MPI implementations for parallel computing in this case study is noteworthy. Numba's parallel execution with threads demonstrates exceptional efficiency and scalability for the Gaussian blur operation, significantly outperforming the MPI approach, which struggles to achieve similar efficiency gains. This might be surprising given MPI's widespread use in high-performance computing for distributed memory systems. The poor performance of MPI in this context could be attributed to overheads associated with inter-process communication, which become pronounced for operations like Gaussian blur that require intensive data exchange. This analysis underscores the importance of choosing the right parallel computing approach based on the specific nature of the task and the computational resources available.
+
+<!--
+#### Sequential code
+
+```log
+Running with radius 1...
+    Execution time: 14.90 seconds
+Running with radius 3...
+    Execution time: 15.30 seconds
+Running with radius 5...
+    Execution time: 15.67 seconds
+Running with radius 7...
+    Execution time: 16.01 seconds
+Running with radius 9...
+    Execution time: 16.52 seconds
+```
+
+#### Parallel numba code
+
+```log
+Running with 1 threads...
+    Execution time: 0.75 seconds, radius 1
+    Execution time: 0.32 seconds, radius 3
+    Execution time: 0.72 seconds, radius 5
+    Execution time: 1.28 seconds, radius 7
+    Execution time: 2.05 seconds, radius 9
+Running with 2 threads...
+    Execution time: 0.07 seconds, radius 1
+    Execution time: 0.17 seconds, radius 3
+    Execution time: 0.39 seconds, radius 5
+    Execution time: 0.67 seconds, radius 7
+    Execution time: 1.06 seconds, radius 9
+Running with 4 threads...
+    Execution time: 0.05 seconds, radius 1
+    Execution time: 0.11 seconds, radius 3
+    Execution time: 0.21 seconds, radius 5
+    Execution time: 0.38 seconds, radius 7
+    Execution time: 0.57 seconds, radius 9
+Running with 8 threads...
+    Execution time: 0.05 seconds, radius 1
+    Execution time: 0.09 seconds, radius 3
+    Execution time: 0.16 seconds, radius 5
+    Execution time: 0.26 seconds, radius 7
+    Execution time: 0.38 seconds, radius 9
+```
+
+#### Parallel MPI code 
+
+```sh
+mpiexec -n 1 python3 problem_2.py
+```
+manually aborted because it took too long
+```log
+Running with 1 processes and radius 1...
+    Execution time: 31.83 seconds
+Running with 1 processes and radius 3...
+    Execution time: 158.23 seconds
+Running with 1 processes and radius 5...
+^C%                                     
+```
+
+```sh
+mpiexec -n 2 python3 problem_2.py
+```
+manually aborted because it took too long
+```log
+Running with 2 processes and radius 1...
+    Execution time: 16.47 seconds
+Running with 2 processes and radius 3...
+    Execution time: 81.36 seconds
+Running with 2 processes and radius 5...
+    Execution time: 196.96 seconds
+Running with 2 processes and radius 7...
+^C%        
+```
+
+```sh
+mpiexec -n 4 python3 problem_2.py
+```
+
+```log
+Running with 4 processes and radius 1...
+    Execution time: 8.39 seconds
+Running with 4 processes and radius 3...
+    Execution time: 42.03 seconds
+Running with 4 processes and radius 5...
+    Execution time: 100.80 seconds
+Running with 4 processes and radius 7...
+    Execution time: 187.10 seconds
+Running with 4 processes and radius 9...
+    Execution time: 301.70 seconds
+```
+
+```sh
+mpiexec -n 8 python3 problem_2.py
+```
+
+```log
+Running with 8 processes and radius 1...
+    Execution time: 5.29 seconds
+Running with 8 processes and radius 3...
+    Execution time: 25.76 seconds
+Running with 8 processes and radius 5...
+    Execution time: 62.57 seconds
+Running with 8 processes and radius 7...
+    Execution time: 120.31 seconds
+Running with 8 processes and radius 9...
+    Execution time: 195.39 seconds
+```
+ -->
+
+
+#### Sobel Edge Detection
+
 
 
 ## Problem 3 - Sorting
