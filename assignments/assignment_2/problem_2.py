@@ -136,17 +136,21 @@ def distribute_chunks_with_overlap(img_array, size, radius):
     return chunks
 
 def trim_and_concatenate_chunks(chunks, radius):
-    trimmed_chunks = [chunk[radius:-radius] if i not in [0, len(chunks)-1] else chunk for i, chunk in enumerate(chunks)]
+    trimmed_chunks = []
+    for i, chunk in enumerate(chunks):
+        if i == 0:
+            trimmed_chunks.append(chunk[:-radius])
+        elif i == len(chunks) - 1:
+            trimmed_chunks.append(chunk[radius:])
+        else:
+            trimmed_chunks.append(chunk[radius:-radius])
     return np.concatenate(trimmed_chunks, axis=0)
 
 def apply_gaussian_blur_chunk(img_array, kernel, radius):
-    print(f"Starting blur chunk operation...")
     height, width = img_array.shape[:2]
     blurred_img = np.zeros_like(img_array)
     for y in range(height):
         for x in range(width):
-            if y % 100 == 0 and x == 0:  # Print progress for every 100th row
-                print(f"Processing row {y}...")
             for c in range(3):
                 sum_val = 0.0
                 for ky in range(-radius, radius + 1):
@@ -155,7 +159,6 @@ def apply_gaussian_blur_chunk(img_array, kernel, radius):
                         px = min(max(x + kx, 0), width - 1)
                         sum_val += img_array[py, px, c] * kernel[ky + radius, kx + radius]
                 blurred_img[y, x, c] = sum_val
-    print(f"Finished blur chunk operation.")
     return blurred_img
 
 
