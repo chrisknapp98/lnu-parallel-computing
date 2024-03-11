@@ -206,7 +206,7 @@ def create_image_with_sharp_edges(image_path, output_path, parallel):
     edges_image = apply_sobel(input_image, parallel)
     write_image(edges_image.convert('RGB'), output_path)  # Convert grayscale to RGB before saving
 
-def run_and_test_mpi_scalability(image_path, output_path):
+def run_and_test_blur_mpi_scalability(image_path, output_path):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -224,17 +224,17 @@ def run_and_test_mpi_scalability(image_path, output_path):
             execution_time = end_time - start_time
             print(f"    Execution time: {execution_time:.2f} seconds")
             
-def run_and_test_serial_scalability(image_path, output_path):
+def run_and_test_blur_serial_scalability(image_path, output_path):
     sigma = 20.0
-    # for radius in [1, 3, 5, 7, 9]:
-    for radius in [1, 5, 7, 10, 20]:
+    for radius in [1, 3, 5, 7, 9]:
+    # for radius in [1, 5, 7, 10, 20]:
         start_time = time.time()
         print(f"Running with radius {radius}...")
         create_blurred_image(image_path, output_path, radius, sigma, False)
         execution_time = time.time() - start_time
         print(f"    Execution time: {execution_time:.2f} seconds")
 
-def run_and_test_numba_parallel_scalability(image_path, output_path):
+def run_and_test_blur_numba_parallel_scalability(image_path, output_path):
     sigma = 20.0
     thread_counts = [1, 2, 4, 8]
     for num_threads in thread_counts:
@@ -258,8 +258,8 @@ if __name__ == "__main__":
     parallel = True
 
     # create_blurred_image(input_image_path, output_blurred_path, radius, sigma, parallel)
-    # create_image_with_sharp_edges(input_image_path, output_edges_path, parallel)
+    create_image_with_sharp_edges(input_image_path, output_edges_path, parallel)
 
-    # run_and_test_mpi_scalability(input_image_path, output_blurred_path)
-    run_and_test_serial_scalability(input_image_path, output_blurred_path)
-    # run_and_test_numba_parallel_scalability(input_image_path, output_blurred_path)
+    # run_and_test_blur_mpi_scalability(input_image_path, output_blurred_path)
+    # run_and_test_blur_serial_scalability(input_image_path, output_blurred_path)
+    # run_and_test_blur_numba_parallel_scalability(input_image_path, output_blurred_path)
