@@ -189,6 +189,39 @@ def apply_gaussian_blur_mpi(image_path, output_path, radius, sigma):
     else:
         pass
 
+def apply_sobel_chunk(img_array):
+    height, width = img_array.shape
+    edges_img = np.zeros((height, width), np.uint8)
+    for y in range(1, height - 1):
+        for x in range(1, width - 1):
+            gx = np.sum(sobel_x * img_array[y - 1:y + 2, x - 1:x + 2])
+            gy = np.sum(sobel_y * img_array[y - 1:y + 2, x - 1:x + 2])
+            magnitude = int(min(np.sqrt(gx**2 + gy**2), 255))
+            edges_img[y, x] = magnitude
+    return edges_img
+
+def apply_sobel_filter_mpi(image_path, output_path):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    if rank == 0:
+        image = read_image(image_path).convert('L')  # Sobel filter uses grayscale
+        img_array = np.array(image)
+        chunks = distribute_chunks_with_overlap(img_array, size, 1)
+    else:
+        chunks = None
+
+    chunk = comm.scatter(chunks, root=0)
+    edges_chunk = apply_sobel_chunk(chunk)
+    edges_chunks = comm.gather(edges_chunk, root=0)
+
+    if rank == 0:
+        edges_img_array = trim_and_concatenate_chunks(edges_chunks, 1)
+        edges_image = Image.fromarray(edges_img_array, 'L').convert('RGB')  # Convert back to RGB
+        write_image(edges_image, output_path)
+
+
 def create_blurred_image(image_path, output_path, radius, sigma, parallel):
     input_image = read_image(image_path)
     if input_image is None:
@@ -246,6 +279,37 @@ def run_and_test_blur_numba_parallel_scalability(image_path, output_path):
             execution_time = time.time() - start_time
             print(f"    Execution time: {execution_time:.2f} seconds, radius {radius}")
 
+def run_and_test_sobel_mpi_scalability(image_path, output_path):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    # for i in range(5):
+    if rank == 0:
+        start_time = time.time()
+        print(f"Running with {size} processes...")
+    apply_sobel_filter_mpi(image_path, output_path)
+    if rank == 0:
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"    Execution time: {execution_time:.2f} seconds")
+
+def run_and_test_sobel_serial(image_path, output_path):
+    start_time = time.time()
+    create_image_with_sharp_edges(image_path, output_path, False)
+    execution_time = time.time() - start_time
+    print(f"    Execution time: {execution_time:.2f} seconds")
+
+def run_and_test_sobel_numba_parallel_scalability(image_path, output_path):
+    thread_counts = [1, 2, 4, 8]
+    for num_threads in thread_counts:
+        set_num_threads(num_threads)
+        print(f"Running with {num_threads} threads...")
+        start_time = time.time()
+        create_image_with_sharp_edges(image_path, output_path, True)
+        execution_time = time.time() - start_time
+        print(f"    Execution time: {execution_time:.2f} seconds")
+
 if __name__ == "__main__":
     file_name = "squidward_painting"
     file_extension = "jpg"
@@ -257,9 +321,16 @@ if __name__ == "__main__":
     sigma = 20.0
     parallel = True
 
+    # Serial
     # create_blurred_image(input_image_path, output_blurred_path, radius, sigma, parallel)
-    create_image_with_sharp_edges(input_image_path, output_edges_path, parallel)
+    # create_image_with_sharp_edges(input_image_path, output_edges_path, parallel)
 
+    # Gaussian blur
     # run_and_test_blur_mpi_scalability(input_image_path, output_blurred_path)
     # run_and_test_blur_serial_scalability(input_image_path, output_blurred_path)
-    # run_and_test_blur_numba_parallel_scalability(input_image_path, output_blurred_path)
+    run_and_test_blur_numba_parallel_scalability(input_image_path, output_blurred_path)
+    
+    # Sobel filter
+    # run_and_test_sobel_mpi_scalability(input_image_path, output_edges_path)
+    # run_and_test_sobel_serial(input_image_path, output_edges_path)
+    # run_and_test_sobel_numba_parallel_scalability(input_image_path, output_edges_path)

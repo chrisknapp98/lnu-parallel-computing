@@ -60,9 +60,14 @@ Then it was time to implement a parallel version with the MPI approach. The imag
 
 #### Sobel Edge Detection
 
+For this filter we also implemented the serial version, as well as a prallel numba version and a parallel MPI version. 
+We could reuse very much of the code used for the image blur and the only differences are actually that we do not have a kernel for this filter and have a different filter calculation per chunk. Further, the filter has no variable like the radius. Therefore, we still overlap the chunks, but keep it to the absolute minimum which is needed. Otherwise two pixels between the chunks would not receive the filter application.
+
 ### Run Code 
 
-The script contains a sequential implementation, as well as a parallel numba implemenetation and a parallel MPI implementation.
+The script contains a sequential implementation, as well as a parallel numba implemenetation and a parallel MPI implementation for both, the gaussian blur and the sobel edge detection. 
+
+The methods are all publicly available in the script and the main block also contains many commented out methods for executing the filters or testing the scalability.
 
 To run the sequential code or the numba code just run it through 
 
@@ -100,7 +105,7 @@ The performance of the Gaussian blur using MPI for parallel execution, surprisin
 For instance, running the operation with a single process (which essentially simulates a sequential execution in an MPI framework) yields a much higher execution time of 31.83 seconds for radius 1 and even longer for radius 3, at 158.23 seconds, before the process was manually aborted due to excessive duration.
 Even when increasing the number of processes to 2 and 4, the execution times, although improved, remain much higher than the Numba parallel execution. For example, with 4 processes, the execution time for radius 1 is 8.39 seconds, and for radius 9, it escalates to 301.70 seconds. The performance does improve as the number of processes increases to 8, but the execution times are still not competitive with the Numba implementation, marking 5.29 seconds for radius 1 and 195.39 seconds for radius 9.
 
-### Parallel Execution Efficiency Comparison
+##### Parallel Execution Efficiency Comparison
 
 | Configuration   | Radius 1         | Radius 3         | Radius 5         | Radius 7         | Radius 9         |
 | --------------- | ---------------- | ---------------- | ---------------- | ---------------- | ---------------- |
@@ -122,6 +127,32 @@ The contrast in performance between Numba and MPI implementations for parallel c
 
 #### Sobel Edge Detection
 
+The sequential (or serial) execution of the Sobel edge detection took 9.97 seconds. This sets the baseline for comparing the efficiency gains of parallel implementations. Unlike the Gaussian blur, where execution time increases with radius, Sobel edge detection's complexity primarily depends on the image size, not the variable parameters of the operation.
+
+Numba again proves to be highly optimized as it even only takes 0.94 seconds with just one thread. Bumping up to 2 threads leads to an execution time of only 0.04 seconds. The same applies to thread counts of 4 and 8.
+
+Running the filter in parallel by using MPI with 1 process essentially simulates a sequential execution in an MPI framework, resulting in 11.05 seconds, which is interestingly longer than the serial implementation. With 2 processes, the execution time decreases to 5.75 seconds, taking only halv of the time. Increasing to 4 processes decreases the execution time to 2.90 seconds, and is again considerably faster. Finally, with 8 processes, the execution time did decrease again, even though not significantly, but still bringing a considerable benefit.
+
+
+##### Sobel Edge Detection Execution Time Comparison
+
+| Method     | Configuration | Execution Time (s) | Improvement over Sequential |
+| ---------- | ------------- | ------------------ | --------------------------- |
+| Sequential | N/A           | 9.97               | N/A                         |
+| MPI        | 1 process     | 11.05              | Slower by 1.08s             |
+| MPI        | 2 processes   | 5.75               | Improved by 4.22s           |
+| MPI        | 4 processes   | 2.90               | Improved by 7.07s           |
+| MPI        | 8 processes   | 2.09               | Improved by 7.88s           |
+| Numba      | 1 thread      | 0.95               | Improved by 9.02s           |
+| Numba      | 2 threads     | 0.04               | Improved by 9.93s           |
+| Numba      | 4 threads     | 0.04               | Improved by 9.93s           |
+| Numba      | 8 threads     | 0.04               | Improved by 9.93s           |
+
+This table highlights the effectiveness of parallel computing in reducing execution times for image processing tasks like Sobel edge detection. Numba's multi-threading capability shows an impressive performance, drastically reducing execution times to near-instantaneous levels with minimal overhead for increasing threads. In contrast, MPI shows a more gradual improvement as the number of processes increases, with diminishing returns indicating the overhead associated with inter-process communication.
+
+#### Conclusion
+
+The use of MPI for parallel processing demonstrated significant benefits for the Sobel edge detection, effectively reducing the execution time with increasing numbers of processes. This improvement contrasts sharply with its performance on the Gaussian blur, where MPI execution times were unexpectedly high, even with multiple processes. This discrepancy can be attributed to the nature of the algorithms and their parallelization potential. Sobel edge detection, being a more straightforward pixel-wise operation, scales better with MPI due to less inter-process communication overhead. On the other hand, Gaussian blur involves more extensive data dependencies and communication overheads, making it less suited for MPI's process-based parallelism. This analysis underscores the importance of algorithm characteristics in selecting an appropriate parallelization strategy.
 
 
 ## Problem 3 - Sorting
