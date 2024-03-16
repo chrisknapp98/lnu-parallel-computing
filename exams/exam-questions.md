@@ -254,4 +254,108 @@ The LogP model is a more realistic model for parallel computation that takes int
 - Values for g and l determined for machines, e.g.,
   - Cluster, g=40, l=5000-20000
 
+## Problem 1 (5 + 3 + 2 = 10 p)
+### 1. We discussed three "walls": ILP, memory, and power. Explain these and how they relate to parallel programming.
+- **ILP Wall:** Instruction-Level Parallelism (ILP) faces limitations due to complexity, diminishing returns with deeper pipelines, and hazards (structural, data, and control). ILP improvements are constrained by these challenges, pushing for parallel programming to enhance performance .
+- **Memory Wall:** The gap between CPU speed and memory speed (latency and bandwidth) limits performance. Despite cache hierarchies designed to mitigate this, the increasing need for data with limited improvements in memory technology exacerbates the "memory wall" .
+- **Power Wall:** Power consumption increases with higher frequencies and more transistors, leading to heat issues and limiting performance improvements. This necessitates energy-efficient parallel architectures to continue performance enhancements without excessive power use .
 
+### 2. Explain how Simultaneous multithreading  (SMT, also called hyper-threading) can help improve performance in a CPU.
+SMT, also known as hyper-threading, allows a single physical processor to execute multiple threads concurrently. It increases ILP by utilizing idle resources within a CPU core, thereby improving performance and throughput without significantly increasing energy costs .
+
+> Not really part of the lecture
+
+### 3. Explain 2-way static issue and Very Long Instruction Word (VLIW).
+- 2-way Static Issue: This refers to the ability of a processor to issue two instructions in a single clock cycle statically, i.e., as determined at compile time. This approach requires the compiler to schedule instructions carefully to avoid hazards and maximize parallel execution .
+- Very Long Instruction Word (VLIW): VLIW architectures bundle several operations into a single, wide instruction word that the processor executes in parallel. This design relies heavily on the compiler to ensure that bundled instructions are independent and can be executed without causing execution stalls.
+
+
+## Problem 3 (5 + 5 = 10 p)
+### 1. Odd-even-transposition sort sorts an array by comparing values in two passes. First, $i$ and $i + 1$ are compared, then $i + 2$ and $i + 3$ are compared. If the values are in the wrong order, they are swapped. The algorithm continues until no values are swapped. Sketch a parallel implementation using MPI.
+
+A parallel MPI implementation of the odd-even-transposition sort involves distributing the array elements across MPI processes. Each process sorts local elements and then participates in parallel compare-exchange operations with neighboring processes to ensure global order. The processes alternately compare and exchange odd-even and even-odd indexed pairs in successive rounds until no swaps are necessary.
+
+### Initial Setup
+1. **Divide the list among processors**: If you have a list of length \(l\) and \(p\) processors, each processor initially gets approximately \(l/p\) elements of the list. This division could be uneven if \(l\) is not perfectly divisible by \(p\), so some processors might have one more element than others.
+2. **Local and neighbor comparisons**: Each processor will perform local comparisons and swaps within its chunk of the list. For comparisons that involve elements on the border between two processors, the processors will send messages to each other to compare these elements and determine if a swap is needed.
+
+### Parallel Sorting Process
+1. **Odd phase**: Each processor compares all odd-even pairs within its part of the list (e.g., compares elements at indices \(0\) and \(1\), \(2\) and \(3\), etc.). For the highest odd index in each processor's chunk, if it's not the last processor, it sends the element at this index to the next processor to compare with the first element of that processor's chunk. If a swap is needed, it's done across processors.
+2. **Even phase**: Similar to the odd phase, but now each processor compares all even-odd pairs within its part of the list (e.g., elements at indices \(1\) and \(2\), \(3\) and \(4\), etc.). Again, for comparisons involving the last element of one processor's chunk and the first element of the next processor's chunk, messages are exchanged to compare and potentially swap these elements.
+3. **Synchronization**: After each phase, use MPI barriers to synchronize all processors, ensuring that all comparisons and swaps for the phase are complete before proceeding to the next phase.
+4. **Termination condition**: The algorithm continues iterating through odd and even phases until a pass occurs where no swaps are made. To detect this globally, all processors can use an MPI collective operation (like MPI_Allreduce) to combine their local "swap made" flags and determine if any swaps were made in the last pass by any processor.
+
+### Key Points
+- **No need for merge-split cycles**: The list remains divided among the processors, with each processor working on sorting its chunk of the list in parallel. Processors communicate only for comparisons that involve elements at the boundaries of their chunks.
+- **Efficient communication**: Use MPI messages for comparing and swapping boundary elements between neighboring processors.
+- **Global synchronization**: Use MPI barriers and collective operations to synchronize and determine the global state of sorting.
+
+
+### 2. How would you implement Odd-even-transposition sort on a GPU. It is sufficient to sketch the steps; you do not need to provide the exact CUDA calls. How would your implementation perform compared to a CPU-based shared-memory implementation? Can you modify the algorithm or your implementation to improve performance?
+
+Implementing odd-even-transposition sort on a GPU involves using CUDA kernels to parallelize the comparison and swapping of adjacent elements. Each CUDA thread can be responsible for comparing and possibly swapping a pair of elements. The implementation can benefit from GPU's high degree of parallelism but must handle thread synchronization and data movement efficiently. Performance can often exceed CPU-based implementations due to higher parallelism but may require optimizations, such as minimizing divergence and maximizing memory throughput, to fully leverage the GPU's capabilities.
+
+### GPU Implementation Sketch
+1. **Data Distribution**: Copy the array to be sorted from the host (CPU) memory to the device (GPU) memory. This step involves transferring the data over PCIe, which, while fast, is still a considerable factor in the overall performance.
+2. **Kernel Configuration**: Configure the GPU kernels. A kernel is a function that runs on the GPU, and it needs to be configured with the number of threads per block and the number of blocks. These parameters heavily depend on the size of the array and the specific GPU hardware being used.
+3. **Sorting in Parallel**:
+   - **Odd Phase**: Launch a kernel where each thread compares and possibly swaps elements at odd-even positions (e.g., \(0\) and \(1\), \(2\) and \(3\), etc.). This step leverages the GPU's ability to perform many such comparisons in parallel.
+   - **Even Phase**: Similarly, launch another kernel for comparing and swapping elements at even-odd positions (e.g., \(1\) and \(2\), \(3\) and \(4\), etc.).
+4. **Synchronization**: Synchronize the threads after each phase to ensure that all comparisons and swaps for that phase are completed before starting the next phase.
+5. **Iteration**: Repeat the odd and even phases until the array is sorted. This may require keeping a flag on the GPU to indicate whether any swaps were made in the last pass, necessitating a check on this flag by the host to determine if another iteration is needed.
+6. **Data Retrieval**: Once sorted, copy the array back from the GPU memory to the host memory.
+
+### Performance Comparison to CPU-Based Implementations
+- **Parallelism**: The GPU implementation can perform far more comparisons and swaps in parallel than a CPU, due to the massive number of threads it supports. This parallelism can lead to significant speedups, especially for large arrays.
+- **Memory Bandwidth**: GPUs have high memory bandwidth, which is beneficial for algorithms like the odd-even transposition sort that require frequent reading and writing of elements.
+- **Overhead**: The overhead of copying data between the host and the GPU can be significant, especially for smaller data sets. For very large data sets, the time taken by the sorting computation itself tends to dwarf this overhead.
+
+### Performance Improvements
+- **Minimize Data Transfer**: Keeping data on the GPU as much as possible and minimizing transfers between the host and the device can improve performance.
+- **Optimized Memory Access**: Utilizing shared memory within blocks to reduce global memory accesses can enhance performance, as shared memory is significantly faster.
+- **Coalesced Memory Accesses**: Ensuring that memory accesses are coalesced, where consecutive threads access consecutive memory locations, can improve memory access efficiency on the GPU.
+- **Adaptive Approach**: For smaller arrays, it might be more efficient to perform the sorting on the CPU to avoid the overhead of data transfer to and from the GPU. An adaptive approach that chooses the sorting location based on the size of the data set could provide the best overall performance.
+
+
+## Problem 5 (3 + 2 + 5 = 10 p)
+### 1. Explain the MPI programming model.
+The MPI (Message Passing Interface) programming model is a standard for parallel computing that uses processes to perform computations. In MPI, data is moved from the memory of one process to that of another, enabling parallel computing across distributed systems. The model supports both point-to-point and collective communication, allowing processes to send and receive messages, synchronize, and perform collective operations like broadcast, gather, and scatter. MPI is designed to work on a wide variety of computing architectures, including single processors, shared-memory processors, and distributed-memory processors
+
+- MPI is the only message passing library that can be considered a standard
+- MPI is portable between multiple platforms
+- Many different implementations available
+  - Support for most programming languages, not just C and Fortran
+  - Demos use MPICH on Ubuntu and mpi4py
+- Rich specification, hundreds of functions
+  - But still quite easy to learn, few functions needed to get started
+
+### 2. Are calls such as `MPI_Send()` blocking or not? Does it matter?
+`MPI_Send()` can be both blocking and non-blocking, depending on the context and how it's used. Blocking sends, like `MPI_Send()`, wait until the message has been copied out of the send buffer before returning control to the user program, which may lead to idle time if the receiving process is not ready. Non-blocking sends, like `MPI_Isend()`, return control to the user program immediately, allowing computations to overlap with communication. Whether a call is blocking or non-blocking matters because it affects the program's performance and how resources are utilized. Blocking operations can simplify program logic but may lead to inefficiencies, while non-blocking operations can improve performance but require more careful management of data dependencies and process synchronization
+
+
+### 3. Show how `MPI_Barrier()` can be implemented using `MPI_Send()` and `MPI_Recv()`. Your solution should handle $p$ processes. Start with $p=2$ and show how your solution generalizes to $p$ processes.
+`MPI_Barrier()` is a synchronization operation that blocks all participating processes until all have reached the barrier. While the document doesn't explicitly describe implementing `MPI_Barrier()` using `MPI_Send()` and `MPI_Recv()`, the underlying principle involves ensuring all processes reach a point of synchronization by exchanging messages. Here is a conceptual approach:
+
+1. Decomposition into Tasks: Each process sends a message to the next process in a circular fashion, indicating it has reached the barrier point.
+2. Assignment to Workers: When a process receives a message from the previous process, it forwards a message to the next process. If it's the last process, it sends a message back to the first process.
+3. Orchestration and Synchronization: The first process waits to receive the final message, ensuring all processes have reached the barrier. Then, it sends a release message back through the circle, allowing all processes to proceed​​.
+
+This method leverages explicit message passing for synchronization, mimicking the barrier's functionality by ensuring all processes sequentially signal their arrival at the barrier and do not proceed until a release signal is circulated.
+
+
+## Problem 6 (3 + 2 + 2 + 3 = 10 p)
+### 1. Explain Moore's, Amdahl's and Gustafson-Barsis' "laws".
+- Moore's Law: Observes that the number of transistors on a microchip doubles approximately every two years, though the cost of computers is halved. This reflects the rapid pace of progress in hardware capabilities, highlighting the importance of parallel computing to leverage these advancements as individual processor speed improvements slow down​​.
+- Amdahl's Law: Describes the speedup in latency of the execution of a task at fixed workload that can be expected of a system whose resources are improved. Specifically, it offers a limit to the expected improvement in speedup for a fixed workload due to increased resources. Amdahl's law emphasizes that the speedup of a program using multiple processors in parallel computing is limited by the time needed for the sequential fraction of the program​​.
+- Gustafson-Barsis's Law: Contrasts with Amdahl's law by suggesting that the speedup of a parallel system can be significantly higher if the workload increases with the number of processors, rather than fixing the problem size. This law addresses the scalability of parallel computing by arguing that larger problems can effectively utilize more processors, potentially leading to linear speedup as problem size grows​​.
+
+### 2. Explain the actor model and how it can be used to implement parallel programs.
+The actor model is a conceptual model that treats "actors" as the universal primitives of concurrent computation. In this model, actors can make local decisions, create more actors, send messages to other actors, and determine how to respond to the next message they receive. Actors can communicate with each other through message passing, allowing parallel and distributed computing without shared state. This model is beneficial for implementing parallel programs because it naturally encapsulates state within individual actors, avoiding many of the synchronization and data consistency issues found in shared-memory models. Actors can be used to structure parallel programs by decomposing tasks into smaller, independent units of work that communicate through asynchronous message passing, thus enabling scalable and flexible parallel systems​​.
+
+### 3. Explain vexctor architectures.
+Vector architectures are designed to process data formatted into vectors rather than processing each piece of data individually. Instead of executing operations on single data elements, vector processors can perform a single instruction on multiple data (SIMD) elements simultaneously. This makes vector architectures highly efficient for operations that can be applied across large datasets, such as mathematical operations on arrays or matrices. By leveraging SIMD, vector architectures can achieve high levels of parallelism within a single processor, significantly accelerating tasks that involve large amounts of data processing​​.
+
+### 4. Explain loop fusion, fission, and hoisting.
+- **Loop Fusion:** The process of combining two or more loops into a single loop that performs all the operations of the original loops. This optimization technique can reduce the overhead of loop control and improve cache utilization by minimizing the amount of data read and written multiple times​​.
+- **Loop Fission (or Loop Distribution):** The opposite of loop fusion, where a single loop is split into multiple loops, each performing a part of the operations initially carried out by the original loop. This can help reduce the loop's complexity, making it easier to parallelize or optimize further​​.
+- **Hoisting (or Loop Invariant Code Motion):** Involves moving code that does not change across iterations of a loop (invariant code) outside of the loop. This reduces the amount of work done within the loop, potentially decreasing the number of computations and improving performance​​.
