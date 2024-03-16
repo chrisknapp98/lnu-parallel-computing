@@ -1701,9 +1701,9 @@ for i in range(1, n):
 - A mechanism for efficient barrier synchronization of all processors
 
 ##### BSP supersteps
-» A BSP computation consists of a sequence of supersteps
-» In each superstep, processes execute computations using locally available data, and issue communication requests
-» Processes synchronized at the end of the superstep, at which all communications issued have been completed
+- A BSP computation consists of a sequence of supersteps
+- In each superstep, processes execute computations using locally available data, and issue communication requests
+- Processes synchronized at the end of the superstep, at which all communications issued have been completed
 
 <img src="assets/bsp-superstep.png" width="200">
 
