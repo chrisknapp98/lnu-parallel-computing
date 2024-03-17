@@ -61,29 +61,31 @@ Automatic parallelization faces several challenges,
 
 ## Problem 3 (5 + 2 + 3 = 10 p)
 ### 1. Explain ILP. What is it, what is its relation to parallel computing, and what issues are there?
-- Instruction Level Parallelism (ILP) 
-  - is the measure of how many of the operations in a computer program can be performed simultaneously 
-  - reflects the ability of a processor to execute multiple instructions at the same time, without having to complete one instruction before starting the next 
-  - is a key factor in the performance of a processor, exploiting parallelism that exists within a single program thread
-  - Key concepts of ILP
-    - Pipelining
-      - is a technique where different stages of instruction execution (like fetching, decoding, executing, and writing back) are overlapped. 
-      - that means that a CPU can have issued a command, but doesn't need to actively manage every step of that operation's execution after it's initiated (like a read or write operation to memory, or sending data to an I/O device)
-    - Superscalar Execution
-      - refers to the ability of a CPU to execute more than one instruction during a single clock cycle
-      - CPUs have several execution units (arithmetic logic units, floating-point units, load/store units, etc.) that can operate in parallel, assuming the instructions are independent and there are no data hazards
-      - its design allows it to decode and prepare several instructions for execution simultaneously, further enhancing its ability to process instructions in parallel
-    - Out-of-order Execution
-      - allows the CPU to pick and choose which instructions to execute next, based on availability of data and execution units, rather than following the program order strictly
-      - if the CPU encounters an instruction that it can't execute right away (perhaps because it's waiting for data to be fetched from memory), it can execute another instruction that's ready to go 
-      - this helps keep the CPU busy and improves efficiency
-      - it is also beneficial in handling branch predictions and data dependencies more efficiently
-        - if a branch prediction goes wrong, the CPU might need to discard or roll back executed instructions
-  - Issues with ILP
-    - **Data Hazards:** Situations where instructions that are scheduled to execute in parallel depend on each other's results, leading to delays.
-    - **Control Hazards:** Caused by branch instructions (like if-else or loops) that can alter the flow of execution, making it hard to predict which instructions can be executed in parallel.
-    - **Resource Conflicts:** Occur when instructions compete for the same resources (like memory or execution units), causing stalls.
-    - **Diminishing Returns:** Beyond a certain point, adding more parallelism does not yield significant performance improvements, due to increased complexity and overheads in managing it.
+#### Instruction Level Parallelism (ILP) 
+- is the measure of how many of the operations in a computer program can be performed simultaneously 
+- reflects the ability of a processor to execute multiple instructions at the same time, without having to complete one instruction before starting the next 
+- is a key factor in the performance of a processor, exploiting parallelism that exists within a single program thread
+
+##### Key concepts of ILP
+- Pipelining
+  - is a technique where different stages of instruction execution (like fetching, decoding, executing, and writing back) are overlapped. 
+  - that means that a CPU can have issued a command, but doesn't need to actively manage every step of that operation's execution after it's initiated (like a read or write operation to memory, or sending data to an I/O device)
+- Superscalar Execution
+  - refers to the ability of a CPU to execute more than one instruction during a single clock cycle
+  - CPUs have several execution units (arithmetic logic units, floating-point units, load/store units, etc.) that can operate in parallel, assuming the instructions are independent and there are no data hazards
+  - its design allows it to decode and prepare several instructions for execution simultaneously, further enhancing its ability to process instructions in parallel
+- Out-of-order Execution
+  - allows the CPU to pick and choose which instructions to execute next, based on availability of data and execution units, rather than following the program order strictly
+  - if the CPU encounters an instruction that it can't execute right away (perhaps because it's waiting for data to be fetched from memory), it can execute another instruction that's ready to go 
+  - this helps keep the CPU busy and improves efficiency
+  - it is also beneficial in handling branch predictions and data dependencies more efficiently
+    - if a branch prediction goes wrong, the CPU might need to discard or roll back executed instructions
+
+##### Issues with ILP
+- **Data Hazards:** Situations where instructions that are scheduled to execute in parallel depend on each other's results, leading to delays.
+- **Control Hazards:** Caused by branch instructions (like if-else or loops) that can alter the flow of execution, making it hard to predict which instructions can be executed in parallel.
+- **Resource Conflicts:** Occur when instructions compete for the same resources (like memory or execution units), causing stalls.
+- **Diminishing Returns:** Beyond a certain point, adding more parallelism does not yield significant performance improvements, due to increased complexity and overheads in managing it.
 
 ### 2. Explain the memory wall. What is the issue and why do we consider it a "wall"?
 The memory wall problem arises from the growing gap between the speed of CPUs and memory. As CPUs become faster, the relative latency of memory access becomes a significant bottleneck, causing CPUs to spend a considerable amount of time waiting for data from memory. This discrepancy limits the overall system performance and is referred to as hitting the "memory wall."
