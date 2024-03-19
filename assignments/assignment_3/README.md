@@ -8,9 +8,5 @@
 
 
 
-## Problem 3 - Sorting
-
-
-
-## Problem 4 - Iterative Solver
+## Problem 3 - Iterative Solver
 
