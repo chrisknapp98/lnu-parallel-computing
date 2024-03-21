@@ -39,36 +39,49 @@ def gauss_seidel(m, maxiter, tol):
             break
     return (res, i)
 
-def gauss_seidel_mpi(grid_size, maxiter, tol):
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-
-    # Calculate the local grid size for each process
+def init_section(grid_size, rank, size):
     local_grid_size = grid_size // size
     remainder = grid_size % size
 
     local_grid = None
     full_grid = heat.init(heat.heat_sources, grid_size)
 
-    if size > 2 and rank == -1 and remainder > 0:
-        local_grid = full_grid[-remainder:, :]
+    if remainder > 0:
+        if rank == size - 1:  # Last process
+            local_grid = full_grid[-remainder:, :]
+        else:
+            local_grid = full_grid[rank * local_grid_size:(rank + 1) * local_grid_size, :]
     else:
-        # get the rows for the current process rank
         local_grid = full_grid[rank * local_grid_size:(rank + 1) * local_grid_size, :]
 
-    # Initialize global_residual to a non-zero value
-    global_residual = tol + 1.0
-    
-    iterations = 0
+    return local_grid
 
-    while global_residual > tol and iterations < maxiter:
+def gauss_seidel_mpi(grid_size, maxiter, tol):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    local_grid = init_section(grid_size, rank, size)  # Assume this function correctly initializes the section
+
+    iterations = 0
+    global_residual = float('inf')
+    done = False
+
+    while not done:
         local_residual = gauss_seidel_step_chessboard(local_grid)
-        # Reduce local_residual from all processes to get global_residual
         global_residual = comm.allreduce(local_residual, op=MPI.SUM)
+
+        if rank == 0:
+            if global_residual < tol or iterations >= maxiter:
+                done = True
+        # Broadcast the decision from rank 0 to all processes
+        done = comm.bcast(done, root=0)
+
         iterations += 1
+        comm.Barrier()
 
     return global_residual, iterations
+
 
 def run_mpi_with_given_params(grid_size, maxiter, tol):
     comm = MPI.COMM_WORLD
@@ -99,7 +112,7 @@ def test_scalability(grid_sizes, maxiter, tol):
         print(f"  Grid Size: {size}x{size}, Execution Time: {execution_time:.2f} seconds, after {i} iterations, residual = {res}")
 
 if __name__ == '__main__':
-    grid_size = 100
+    grid_size = 80
     maxiter = 25000
     tol = 0.00005
 
