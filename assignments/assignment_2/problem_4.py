@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from math import sqrt, ceil
+from math import sqrt, ceil, floor
 from mpi4py import MPI
 import sys
 from pathlib import Path
@@ -43,7 +43,7 @@ def init_section(grid_size, rank, size):
     full_grid = heat.init(heat.heat_sources, grid_size)
     grid_size = full_grid.shape[0]
     local_grid_size = ceil(grid_size / size)
-    remainder = grid_size % size
+    remainder = grid_size - (size - 1) * local_grid_size
     
     local_grid = None
 
@@ -63,7 +63,7 @@ def gauss_seidel_mpi(grid_size, maxiter, tol):
     size = comm.Get_size()
 
     local_grid = init_section(grid_size, rank, size)
-    
+
     iterations = 0
     global_residual = float('inf')
     done = False
