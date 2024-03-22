@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from math import sqrt
+from math import sqrt, ceil
 from mpi4py import MPI
 import sys
 from pathlib import Path
@@ -40,14 +40,15 @@ def gauss_seidel(m, maxiter, tol):
     return (res, i)
 
 def init_section(grid_size, rank, size):
-    local_grid_size = grid_size // size
-    remainder = grid_size % size
-
-    local_grid = None
     full_grid = heat.init(heat.heat_sources, grid_size)
+    grid_size = full_grid.shape[0]
+    local_grid_size = ceil(grid_size / size)
+    remainder = grid_size % size
+    
+    local_grid = None
 
     if remainder > 0:
-        if rank == size - 1:  # Last process
+        if rank == size - 1:
             local_grid = full_grid[-remainder:, :]
         else:
             local_grid = full_grid[rank * local_grid_size:(rank + 1) * local_grid_size, :]
@@ -61,8 +62,8 @@ def gauss_seidel_mpi(grid_size, maxiter, tol):
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    local_grid = init_section(grid_size, rank, size)  # Assume this function correctly initializes the section
-
+    local_grid = init_section(grid_size, rank, size)
+    
     iterations = 0
     global_residual = float('inf')
     done = False
@@ -112,7 +113,7 @@ def test_scalability(grid_sizes, maxiter, tol):
         print(f"  Grid Size: {size}x{size}, Execution Time: {execution_time:.2f} seconds, after {i} iterations, residual = {res}")
 
 if __name__ == '__main__':
-    grid_size = 80
+    grid_size = 100
     maxiter = 25000
     tol = 0.00005
 
