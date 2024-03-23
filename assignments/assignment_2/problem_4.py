@@ -40,6 +40,10 @@ def gauss_seidel(m, maxiter, tol):
     return (res, i)
 
 def init_section(grid_size, rank, size):
+    """
+    Initialize the grid and return the section of the grid that the process will work on.
+    Rows are overlapping between processes.
+    """
     full_grid = heat.init(heat.heat_sources, grid_size)
     grid_size = full_grid.shape[0]
     local_grid_size = ceil(grid_size / size)
@@ -65,6 +69,12 @@ def init_section(grid_size, rank, size):
     return local_grid
 
 def gauss_seidel_mpi(grid_size, maxiter, tol):
+    """
+    Gauss-Seidel method with MPI parallelization.
+    Rows are overlapping and communicated between processes on every iteration.
+    As different sections of the grid are computed in parallel by different processes, 
+    the residual will not be as accurate as computing sequentially.
+    """
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -98,6 +108,12 @@ def gauss_seidel_mpi(grid_size, maxiter, tol):
 
 
 def gauss_seidel_mpi_chessboard_with_color_sync(grid_size, maxiter, tol):
+    """
+    Gauss-Seidel method with chessboard ordering and color synchronization. 
+    It might make the calculation more accurate, but it is a lot slower. 
+    Also this will still not be as accurate as computing sequentially, 
+    what makes the use of this implementation hard to justify.
+    """
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
