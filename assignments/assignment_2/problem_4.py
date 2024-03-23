@@ -167,25 +167,49 @@ def run_with_given_params(grid_size, maxiter, tol):
     res, i = gauss_seidel(m, maxiter, tol)
     print(f'Residual = {res} after {i} iterations')
 
-def run_and_test_scalability(maxiter, tol):
-    grid_sizes = [100, 250, 500, 1000, 1500]
-    test_scalability(grid_sizes, maxiter, tol)
+def run_and_test_mpi_scalability(maxiter, tol):
+    grid_sizes = [25, 50, 75, 100, 150]
+    test_mpi_scalability(grid_sizes, maxiter, tol)
 
-def test_scalability(grid_sizes, maxiter, tol):
-    print(f"Testing...")
+def test_mpi_scalability(grid_sizes, maxiter, tol):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    if rank == 0:
+        print(f"Testing with {size} processes...")
+    for size in grid_sizes:
+        m = heat.init(heat.heat_sources, size)
+        if rank == 0:
+            start_time = time.time()
+        res, i = gauss_seidel(m, maxiter, tol)
+        if rank == 0:
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(f"  Grid Size: {size}x{size}, Execution Time: {execution_time:.2f} seconds, after {i} iterations, residual = {res}")
+
+def run_and_test_serial_scalability(maxiter, tol):
+    grid_sizes = [25, 50, 75, 100, 150]
+    test_serial_scalability(grid_sizes, maxiter, tol)
+
+def test_serial_scalability(grid_sizes, maxiter, tol):
     for size in grid_sizes:
         m = heat.init(heat.heat_sources, size)
         start_time = time.time()
         res, i = gauss_seidel(m, maxiter, tol)
+        # res, i = heat.gauss_seidel(m, maxiter, tol)
         end_time = time.time()
-        
         execution_time = end_time - start_time
-        print(f"  Grid Size: {size}x{size}, Execution Time: {execution_time:.2f} seconds, after {i} iterations, residual = {res}")
+        print(f"Grid Size: {size}x{size}, Execution Time: {execution_time:.2f} seconds, after {i} iterations, residual = {res}")
 
 if __name__ == '__main__':
     grid_size = 100
     maxiter = 25000
     tol = 0.00005
 
-    run_mpi_with_given_params(grid_size, maxiter, tol)
-    # run_and_test_scalability(maxiter, tol)
+    # MPI implementation
+    # run_mpi_with_given_params(grid_size, maxiter, tol)
+    run_and_test_mpi_scalability(maxiter, tol)
+
+    # Serial impleentation
+    # run_and_test_serial_scalability(maxiter, tol)
