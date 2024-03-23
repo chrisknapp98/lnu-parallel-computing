@@ -76,17 +76,23 @@ def gauss_seidel_mpi(grid_size, maxiter, tol):
     done = False
 
     while not done:
+        if rank > 0:
+            comm.send(local_grid[1, :], dest=rank-1)
+            local_grid[0, :] = comm.recv(source=rank-1)
+        
+        if rank < size - 1:
+            comm.send(local_grid[-2, :], dest=rank+1)
+            local_grid[-1, :] = comm.recv(source=rank+1)
+
         local_residual = gauss_seidel_step_chessboard(local_grid)
         global_residual = comm.allreduce(local_residual, op=MPI.SUM)
 
         if rank == 0:
             if global_residual < tol or iterations >= maxiter:
                 done = True
-        # Broadcast the decision from rank 0 to all processes
-        done = comm.bcast(done, root=0)
 
+        done = comm.bcast(done, root=0)
         iterations += 1
-        comm.Barrier()
 
     return global_residual, iterations
 
