@@ -47,13 +47,20 @@ def init_section(grid_size, rank, size):
     
     local_grid = None
 
+    local_grid_start = rank * local_grid_size
+    if rank != 0:
+        local_grid_start -= 1
+    local_grid_end = (rank + 1) * local_grid_size
+    if rank != size - 1:
+        local_grid_end += 1
+
     if remainder > 0:
         if rank == size - 1:
             local_grid = full_grid[-remainder:, :]
         else:
-            local_grid = full_grid[rank * local_grid_size:(rank + 1) * local_grid_size, :]
+            local_grid = full_grid[local_grid_start:local_grid_end, :]
     else:
-        local_grid = full_grid[rank * local_grid_size:(rank + 1) * local_grid_size, :]
+        local_grid = full_grid[local_grid_start:local_grid_end, :]
 
     return local_grid
 
