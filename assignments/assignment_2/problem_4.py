@@ -97,6 +97,47 @@ def gauss_seidel_mpi(grid_size, maxiter, tol):
     return global_residual, iterations
 
 
+def gauss_seidel_mpi_chessboard_with_color_sync(grid_size, maxiter, tol):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    
+    local_grid = init_section(grid_size, rank, size)
+
+    iterations = 0
+    done = False
+    while not done and iterations < maxiter:
+        for color in [0, 1]:
+            local_residual = update_cells_by_color(local_grid, color)
+            
+            comm.Barrier()
+
+            if rank != 0:
+                send_data = local_grid[1, :]
+                recv_data = np.empty_like(send_data)
+                comm.Sendrecv(send_data, dest=rank-1, recvbuf=recv_data, source=rank-1)
+                local_grid[0, :] = recv_data
+            
+            if rank != size-1:
+                send_data = local_grid[-2, :]
+                recv_data = np.empty_like(send_data)
+                comm.Sendrecv(send_data, dest=rank+1, recvbuf=recv_data, source=rank+1)
+                local_grid[-1, :] = recv_data 
+            
+            comm.Barrier()
+
+        global_residual = comm.allreduce(local_residual, op=MPI.SUM)
+        
+        if rank == 0:
+            if global_residual < tol:
+                done = True
+        done = comm.bcast(done, root=0)
+
+        iterations += 1
+
+    return global_residual, iterations
+
+
 def run_mpi_with_given_params(grid_size, maxiter, tol):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -108,7 +149,7 @@ def run_mpi_with_given_params(grid_size, maxiter, tol):
 def run_with_given_params(grid_size, maxiter, tol):
     m = heat.init(heat.heat_sources, grid_size)
     res, i = gauss_seidel(m, maxiter, tol)
-    print(f'residual = {res} after {i} iterations')
+    print(f'Residual = {res} after {i} iterations')
 
 def run_and_test_scalability(maxiter, tol):
     grid_sizes = [100, 250, 500, 1000, 1500]
@@ -130,8 +171,5 @@ if __name__ == '__main__':
     maxiter = 25000
     tol = 0.00005
 
-    # grid_size = 20  # Reduced grid size
-    # maxiter = 10    # Reduced maximum iterations
-    # tol = 1.0       # Increased tolerance
     run_mpi_with_given_params(grid_size, maxiter, tol)
     # run_and_test_scalability(maxiter, tol)
