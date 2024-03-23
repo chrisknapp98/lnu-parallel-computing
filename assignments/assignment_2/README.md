@@ -75,7 +75,7 @@ To run the sequential code or the numba code just run it through
 python problem_2.py
 ```
 
-To run the MPI version though it's important to have `open-mpi` installed. Then it can be run through the code below, while flag n sets the number of cores to use.
+To run the MPI version though it's important to have `open-mpi` installed. Then it can be run through the code below, while flag `-n` sets the number of cores to use.
 
 ```sh
 mpiexec -n 8 python problem_2.py
@@ -209,3 +209,71 @@ The results of this parallelization is not really good. For small number of inst
 Compared to assignment 1 and using a threadpool to add the single recursive tasks to this pool, the parallel version of quicksort using mpi is just not meaningful. The communication inside a threadpool is so much easier so a new task can be instantly started after finishing one. With mpi, we firstly needed to simplify the parallelization of the algorithm, and then do the not optimal merging between the lists that only one mpi instance can do, so we have a lot of effort for the branch and bound of the task and wait for single instances to finish their work which slows the whole algorithm down.
 
 ## Problem 4 - Iterative Solver
+
+### Description 
+
+This problem was very hard to get parallelized. In the end, our final implementation should not even be a 100% correct. With the chosen strategy being the chessboard strategy or even just looping through the cells, it should not really be possible to parallelize the algorithm and get accurate results. However, the parallelization may find justification if the use case is just to get a rough estimate of the needed iteration counts and if that's the goal, we actually have surprising results which suggest that you might find benefit using the MPI parallelization strategy. 
+
+So what we did, was to initialize the grid from the given script and then divide the grid vertically into as many sections as we have workers. The rows are overlapping, so that in theory we apply the calculation to every cell as it would in the sequential code. 
+We avoided doing initializing the grid just on rank 0 and scattering the sections because it was taking a lot of time and was just painful. In our use case we always run the code on just one machine and therefore we decided to not waste our time with something bein irrelevant for the end result. 
+
+
+### Run code 
+
+The script contains a sequential implementation and a parallel MPI implementation. 
+
+The methods are all publicly available in the script and the main block also contains many commented out methods for executing or testing the scalability.
+
+To run the sequential code or the numba code just run it through 
+
+```sh 
+python problem_4.py
+```
+
+To run the MPI version though it's important to have `open-mpi` installed. Then it can be run through the code below, while flag `-n` sets the number of cores to use.
+
+```sh
+mpiexec -n 8 python problem_4.py
+```
+
+### Results
+
+```log
+Sequential Code
+  Grid Size: 50x50, Execution Time: 2.48 seconds, after 920 iterations, residual = 4.9884283972926024e-05
+  Grid Size: 75x75, Execution Time: 11.02 seconds, after 1810 iterations, residual = 4.9999453243256274e-05
+  Grid Size: 100x100, Execution Time: 31.01 seconds, after 2904 iterations, residual = 4.993483841261299e-05
+  Grid Size: 150x150, Execution Time: 133.80 seconds, after 5562 iterations, residual = 4.99790877950682e-05
+```
+
+```log
+Testing with 1 processes...
+  Grid Size: 50x50, Execution Time: 2.53 seconds, after 921 iterations, residual = 4.9884283972926024e-05
+  Grid Size: 75x75, Execution Time: 11.02 seconds, after 1811 iterations, residual = 4.9999453243256274e-05
+  Grid Size: 100x100, Execution Time: 31.35 seconds, after 2905 iterations, residual = 4.993483841261299e-05
+  Grid Size: 150x150, Execution Time: 134.21 seconds, after 5563 iterations, residual = 4.99790877950682e-05
+```
+
+```log
+Testing with 2 processes...
+  Grid Size: 50x50, Execution Time: 1.29 seconds, after 917 iterations, residual = 4.996887370765269e-05
+  Grid Size: 75x75, Execution Time: 5.68 seconds, after 1806 iterations, residual = 4.990103251934661e-05
+  Grid Size: 100x100, Execution Time: 15.71 seconds, after 2897 iterations, residual = 4.999177952400275e-05
+  Grid Size: 150x150, Execution Time: 67.36 seconds, after 5552 iterations, residual = 4.9976947614032176e-05
+```
+
+```log
+Testing with 4 processes...
+  Grid Size: 50x50, Execution Time: 0.79 seconds, after 930 iterations, residual = 4.995656816455167e-05
+  Grid Size: 75x75, Execution Time: 3.13 seconds, after 1822 iterations, residual = 4.990014553031654e-05
+  Grid Size: 100x100, Execution Time: 8.55 seconds, after 2917 iterations, residual = 4.992126799124818e-05
+  Grid Size: 150x150, Execution Time: 35.84 seconds, after 5576 iterations, residual = 4.9958378575168635e-05
+```
+
+```log
+Testing with 8 processes...
+  Grid Size: 50x50, Execution Time: 13.37 seconds, after 951 iterations, residual = 4.999826933182698e-05
+  Grid Size: 75x75, Execution Time: 22.52 seconds, after 1852 iterations, residual = 4.992196962316843e-05
+  Grid Size: 100x100, Execution Time: 39.52 seconds, after 2952 iterations, residual = 4.999826391719305e-05
+  Grid Size: 150x150, Execution Time: 104.73 seconds, after 5619 iterations, residual = 4.996717823494437e-05
+```
