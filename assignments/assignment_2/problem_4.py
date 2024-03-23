@@ -168,7 +168,7 @@ def run_with_given_params(grid_size, maxiter, tol):
     print(f'Residual = {res} after {i} iterations')
 
 def run_and_test_mpi_scalability(maxiter, tol):
-    grid_sizes = [25, 50, 75, 100, 150]
+    grid_sizes = [50, 75, 100, 150]
     test_mpi_scalability(grid_sizes, maxiter, tol)
 
 def test_mpi_scalability(grid_sizes, maxiter, tol):
@@ -179,17 +179,16 @@ def test_mpi_scalability(grid_sizes, maxiter, tol):
     if rank == 0:
         print(f"Testing with {size} processes...")
     for size in grid_sizes:
-        m = heat.init(heat.heat_sources, size)
         if rank == 0:
             start_time = time.time()
-        res, i = gauss_seidel(m, maxiter, tol)
+        res, i = gauss_seidel_mpi(size, maxiter, tol)
         if rank == 0:
             end_time = time.time()
             execution_time = end_time - start_time
             print(f"  Grid Size: {size}x{size}, Execution Time: {execution_time:.2f} seconds, after {i} iterations, residual = {res}")
 
 def run_and_test_serial_scalability(maxiter, tol):
-    grid_sizes = [25, 50, 75, 100, 150]
+    grid_sizes = [50, 75, 100, 150]
     test_serial_scalability(grid_sizes, maxiter, tol)
 
 def test_serial_scalability(grid_sizes, maxiter, tol):
