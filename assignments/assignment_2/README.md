@@ -31,23 +31,21 @@ The parameter n defines the number of instances to use for the calculation.
 The results of the calculation can be seen in the following table. We compare the sequential runtime to the runs using mpi 
 with different values for the n parameter that defines the number of mpi instances.
 
-n | 10.000 (s) | 100.000 (s) | 250.000 (s) | 500.000 (s) | 750.000 (s)
+n | 10.000 (ms) | 100.000 (ms) | 500.000 (ms) | 1.000.000 (ms) | 2.000.000 (ms)
 --|--|--|--|--|--
-seq| 0.03 | 0.59 | 7.35 | 43.95 | 93.90
-1| 0.03 | 0.60 | 7.51 | 43.64 | 92.86
-2| 0.02 | 0.39 | 6.54 | 36.34 | 90.96
-4| 0.01 | 0.22 | 4.35 | 22.47 | 55.43
-8| 0.01 | 0.19 | 2.87 | 13.58 | 34.05
-12| 0.01 | 0.15 | 2.29 | 11.83 | 26.67
-16| 0.06 | 0.19 | 2.44 | 21.32 | 22.24
+seq| 5.02 | 47.28 | 234.45 | 473.47 | 915.98
+1| 4.69 | 48.30 | 228.57 | 451.78 | 912.84
+2| 4.36 | 35.44 | 113.93 | 228.05 | 467.68
+4| 2.88 | 17.76 | 86.27 | 172.68 | 301.29
+8| 1.82 | 10.33 | 49.88 | 98.68 | 193.53
+12| 7.17 | 11.07 | 44.65 | 75.45 | 137.12
+16| 45.75 | 19.93 | 46.42 | 102.83 | 143.71
 
 Running the calculation sequential has nearly the same runtime results as the calculation using mpi with `n=1` which of course makes sense because in both cases there is only one instance doing the calculation.
 
-Running more instances decreases the runtime for nearly all numbers of terms. For example the comparison between `n=1` and `n=2` shortens the runtime for 100.000 terms by almost half. 
+The best results are calculated when using 12 instances. This might correlate with the computer that was used for the calculation, because it has 12 kernels. For the small amount of terms, the runtime increases when using more than 8 instances. The cost for creating the mpi instances is significantly higher than the improvement with the parallelization. When it comes to a higher amount of terms, we can see a good decrease of runtime. For example for 2 million terms using 12 mpi instances, we get a 6.68 times improvement which is a good improvement at all but not as good as expected, if we have 12 parallel runners.
 
-Unexpectedly, there is almost no improvement for the higher amount of terms. Only when using a bigger n than 4 we can also reduce the runtime for the high amount of terms. It might happen because the calculation of the partial sum for higher indexes takes longer than using small indexes so splitting the terms in equal parts is not optimal. 
-
-The optimal number of instances is at about 12, which is also the amount of kernels the computer has, on which the calculations were performed. The use of a higher number of instances is worsening the results for instances smaller or equal to 500.000. Interesting is, that the calculation for 750.000 terms is still improved for 16 instances and also nearly the same runtime as for 500.000 terms. The issue we were experiencing with higher indexes of the sum seems to take advantage of higher number of instances so the work split is better for the runtime.
+It is very interesting that the runtime for 10.000 terms with `n=16` is more than double the runtime of 100.000 terms. This could be seen repeatedly on every run. It seems that there is a high initial cost for creating all the mpi instances in the first loop iteration. Although all the different term sizes are calculated repeatedly in the loop, there might be some internal caching process by mpi4py so that the next iterations are faster than the first one. 
 
 ## Problem 2 - Applying Filters on an Image
 

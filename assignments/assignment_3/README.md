@@ -2,7 +2,41 @@
 
 ## Problem 1 - Approximating Pi
 
+### Description
 
+To parallelize the code using the GPU, we use the package `cupy`. We can easily calculate the single sums with the `bailey_borwein_plouf` function. To compare it to a not GPU-parallelized version, we change `cp.sum`/`cp.arange` to `np.sum`/`np.arange` and use simple `numpy` to calculate the results. 
+
+### Run Code
+
+The code is provided in `problem_1.ipynb`.
+
+To run the code simply install the necessary packages and run the specific cell.
+
+The first cell with the parallel version can only be run when the computer has a NVDIA GPU and the cuda driver installed. The second cell with the sequential version only needs python and has no other dependency.
+
+### Results
+
+The results are shown below and are calculated using the two different code cells in the jupyter notebook.
+
+numpy
+```
+Terms:  100000 , Execution time:  7.173  ms, Pi approximation:  3.141592653589793
+Terms:  1000000 , Execution time:  52.927  ms, Pi approximation:  3.141592653589793
+Terms:  10000000 , Execution time:  689.888  ms, Pi approximation:  3.141592653589793
+Terms:  100000000 , Execution time:  5837.467  ms, Pi approximation:  3.141592653589793
+```
+
+cupy
+```
+Terms:  100000 , Execution time:  2.204  ms, Pi approximation:  3.1415926535897936
+Terms:  1000000 , Execution time:  5.128  ms, Pi approximation:  3.1415926535897936
+Terms:  10000000 , Execution time:  41.811  ms, Pi approximation:  3.1415926535897936
+Terms:  100000000 , Execution time:  291.806  ms, Pi approximation:  3.1415926535897936
+```
+
+The parallelization works great. The numpy calculation is already very fast and the cupy version can improve the runtime results up to 20 times. We also needed to improve the maximum number of terms compared to the last assignments because the calculation is so fast.
+
+Apparently GPUs are pretty good in doing simple calculations like the bailey-borwein-plouf-formula. The many kernels can efficiently be used for calculating the single summands which is what was expected by us.
 
 ## Problem 2 - Applying Filters on an Image
 
@@ -121,3 +155,76 @@ Running the filter in parallel on the GPU also gives us quite a performance impr
 
 ## Problem 3 - Iterative Solver
 
+### Description
+
+To parallelize this code, we use a combination of the recent strategies. First, we use the chessboard strategy like in assignment 1 and 2 so we are able to calculate the results of the "red" and "black" grid-cells independently of each other.
+
+The main part of GPU parallelization is done by cuda. We first select the amount of threads per block (scalable) and calculate the number of blocks per grid based on the number of threads and the grid size.
+
+This parallelization was able to be significantly improved by using cupy arrays instead of numpy arrays. To synchronize the program after each calculation (either red or black), we use the stream synchronization by cupy (`cp.cuda.stream.get_current_stream().synchronize()`).
+
+For get the optimal results, we are testing different grid sizes together with different threads per block.
+
+### Run Code
+
+The code is provided in the notebook `problem_3.ipynb`.
+
+To run the code locally, the program needs the packages numpy, cuda and cupy installed. Note that cupy respectively cuda can only be installed when the computer has a NVIDIA GPU.
+
+If you use Google Colab, you can simply upload the file and then run it.
+
+The different parameters can be adjusted in the main method (commented). If there is no need to run it with specific parameters, the main method will run different grid sizes and multiple thread amounts per block.
+
+### Results
+
+We get the following results using five different grid sizes and five different amounts of threads per block. The maxiterations are kept at 25.000 and the residual tolerance at 0.00005 to ensure a more precise and also more complex calculation so we are able to do a better evaluation. The results are calculated using Google Colab with a T4 GPU.
+
+```
+Running with (16, 16) threads per block...
+
+    Grid Size: 100x100, Execution time: 4.55 seconds, after 2810 iterations residual: 4.993036782252602e-05
+    Grid Size: 250x250, Execution time: 17.56 seconds, after 11986 iterations residual: 4.9983991630142555e-05
+    Grid Size: 500x500, Execution time: 50.74 seconds, after 24999 iterations residual: 7.948098937049508e-05
+    Grid Size: 1000x1000, Execution time: 82.08 seconds, after 24999 iterations residual: 0.00017656656564213336
+    Grid Size: 1500x1500, Execution time: 144.70 seconds, after 24999 iterations residual: 0.000267022754997015
+
+Running with (32, 8) threads per block...
+
+    Grid Size: 100x100, Execution time: 3.77 seconds, after 2810 iterations residual: 4.993044422008097e-05
+    Grid Size: 250x250, Execution time: 17.39 seconds, after 11985 iterations residual: 4.9999976909020916e-05
+    Grid Size: 500x500, Execution time: 50.27 seconds, after 24999 iterations residual: 7.948118582135066e-05
+    Grid Size: 1000x1000, Execution time: 81.58 seconds, after 24999 iterations residual: 0.0001765664346748963
+    Grid Size: 1500x1500, Execution time: 144.55 seconds, after 24999 iterations residual: 0.0002670247631613165
+
+Running with (8, 32) threads per block...
+
+    Grid Size: 100x100, Execution time: 3.30 seconds, after 2810 iterations residual: 4.9930389650398865e-05
+    Grid Size: 250x250, Execution time: 17.46 seconds, after 11985 iterations residual: 4.999996235710569e-05
+    Grid Size: 500x500, Execution time: 49.38 seconds, after 24999 iterations residual: 7.948097481857985e-05
+    Grid Size: 1000x1000, Execution time: 80.98 seconds, after 24999 iterations residual: 0.0001765668421285227
+    Grid Size: 1500x1500, Execution time: 143.81 seconds, after 24999 iterations residual: 0.0002670224930625409
+    
+Running with (32, 32) threads per block...
+
+    Grid Size: 100x100, Execution time: 3.59 seconds, after 2810 iterations residual: 4.993042966816574e-05
+    Grid Size: 250x250, Execution time: 17.12 seconds, after 11986 iterations residual: 4.998387157684192e-05
+    Grid Size: 500x500, Execution time: 49.76 seconds, after 24999 iterations residual: 7.948109123390168e-05
+    Grid Size: 1000x1000, Execution time: 81.66 seconds, after 24999 iterations residual: 0.00017656634736340493
+    Grid Size: 1500x1500, Execution time: 144.27 seconds, after 24999 iterations residual: 0.00026702380273491144
+
+Running with (10, 10) threads per block...
+
+    Grid Size: 100x100, Execution time: 3.33 seconds, after 2810 iterations residual: 4.9930404202314094e-05
+    Grid Size: 250x250, Execution time: 17.93 seconds, after 11985 iterations residual: 4.99999696330633e-05
+    Grid Size: 500x500, Execution time: 49.90 seconds, after 24999 iterations residual: 7.948122220113873e-05
+    Grid Size: 1000x1000, Execution time: 81.60 seconds, after 24999 iterations residual: 0.0001765668421285227
+    Grid Size: 1500x1500, Execution time: 144.43 seconds, after 24999 iterations residual: 0.0002670244430191815
+```
+
+All single executions using different amounts of threads per block are giving us pretty similar results while the selection (8, 32) has the best results. The execution time rises of course when the grid size rises but the ratio is interesting:
+
+Compared to a 100x100 grid, the 500x500 grid has 25 times as many fields but the runtime is only 15 times as long. If we compare 100x100 to 1500x1500 the instance size is 225 times the size but the runtime is only around 43 as much. We can see that there are some improvements compared to a sequential version but the parallelization is of course not optimal.
+
+The problem with the algorithm is the necessarity to synchronize the results. We have to synchronize the results two times in every loop iteration so especially for a high amount of iterations we have a lot of synchronizations. That's why we are not able to use the many kernels of the GPU efficiently and improve our results the way we did it for the other two problems of assignment 3.
+
+Note: We also tried to measure the runtime using `%timeit`. Doing that, our algorithm had a runtime of about 1ms for a 100x100 grid but we were not able to process and print the results of the calculation. Somehow timeit measures only part of the calculation and doesn't measure correct results when using gpu parallelization.
