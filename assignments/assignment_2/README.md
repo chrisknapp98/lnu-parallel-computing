@@ -75,7 +75,7 @@ To run the sequential code or the numba code just run it through
 python problem_2.py
 ```
 
-To run the MPI version though it's important to have `open-mpi` installed. Then it can be run through the code below, while flag n sets the number of cores to use.
+To run the MPI version though it's important to have `open-mpi` installed. Then it can be run through the code below, while flag `-n` sets the number of cores to use.
 
 ```sh
 mpiexec -n 8 python problem_2.py
@@ -209,3 +209,121 @@ The results of this parallelization is not really good. For small number of inst
 Compared to assignment 1 and using a threadpool to add the single recursive tasks to this pool, the parallel version of quicksort using mpi is just not meaningful. The communication inside a threadpool is so much easier so a new task can be instantly started after finishing one. With mpi, we firstly needed to simplify the parallelization of the algorithm, and then do the not optimal merging between the lists that only one mpi instance can do, so we have a lot of effort for the branch and bound of the task and wait for single instances to finish their work which slows the whole algorithm down.
 
 ## Problem 4 - Iterative Solver
+
+### Description 
+
+This problem was very hard to get parallelized. In the end, our final implementation should not even be a 100% correct. With the chosen strategy being the chessboard strategy or even just looping through the cells, it should not really be possible to parallelize the algorithm for one iteration and get accurate results. However, the parallelization may find justification if the use case is just to get a rough estimate of the needed iteration counts and if that's the goal, we actually have surprising results which suggest that you might find a benefit using the MPI parallelization strategy, but only with specific configurations. 
+
+To parallelize the algorithm, ideally you would instead look at another strategy. As one iteration should run sequentially because cells need their updated corresponding neighbours from top and left and therefore we would instead look to something different to parallelize. For example we could run multiple iterations in parallel instead and set specific boundaries which need to be passed in order for another work to start its calculation. That would require much more communication between the workers and was considered overkill for the sake of this exercise. But in theory and if done properly, we should see quite some performance improvements while maintaining the same accuracy as the sequential algorithm.
+
+We implemented two versions to solve the problem, or at least get near to a real solution.
+In method `gauss_seidel_mpi()` we don't sync the colors with other workers after calculating the residual and updating the grid. In the method `gauss_seidel_mpi_chessboard_with_color_sync()` we do exactly that in hope to get a more accurate calculation.
+
+#### Chessboard Strategy without color sync
+So what we did, was to initialize the grid through the `init()` method from the given `heat.py` script and then divide the grid vertically into as many sections as we have workers. The rows are overlapping, so that in theory we apply the calculation to every cell as it would in the sequential code. 
+We avoided initializing the grid just on rank 0 and scattering the sections because it was taking a lot of time and was just painful. In our use case we always run the code on just one machine and therefore we decided to not waste our time with something bein irrelevant for the end result. 
+We loop as long as the iteration count is smaller than the maximum iteration count and the calculated summed residual is smaller than the aimed tolerance.
+In every loop, we first send and receive the overlapping ghost cells from the neighbouring workers to have a more accurate calculation. Then we collect the results from all workers and sum them up. Finally, we check if we are done and communicate that to all workers.
+
+#### Chessboard Strategy with color sync
+In this method most things from the just mentioned approach also apply here. The only difference is, that for each color of the chessboard, we send and receive the ghost cells of the neighbouring workers and then calculate the residual to achieve some extra accuracy. The rest is pretty much identical.
+
+
+### Run code 
+
+The script contains a sequential implementation and a parallel MPI implementation. 
+
+The methods are all publicly available in the script and the main block also contains many commented out methods for executing or testing the scalability.
+
+To run the sequential code or the numba code just run it through 
+
+```sh 
+python problem_4.py
+```
+
+To run the MPI version though it's important to have `open-mpi` installed. Then it can be run through the code below, while flag `-n` sets the number of cores to use.
+
+```sh
+mpiexec -n 8 python problem_4.py
+```
+
+### Results
+Comparing the code to the sequential approach, we have quite mixed results.
+As mentioned before, with the chosen parallelization approach we sacrifice accuarcy but can get quite some performance improvements.
+
+```log
+Sequential Code
+  Grid Size: 50x50, Execution Time: 2.48 seconds, after 920 iterations, residual = 4.9884283972926024e-05
+  Grid Size: 75x75, Execution Time: 11.02 seconds, after 1810 iterations, residual = 4.9999453243256274e-05
+  Grid Size: 100x100, Execution Time: 31.01 seconds, after 2904 iterations, residual = 4.993483841261299e-05
+  Grid Size: 150x150, Execution Time: 133.80 seconds, after 5562 iterations, residual = 4.99790877950682e-05
+```
+
+#### Chessboard Strategy without color sync
+As we would expect, running the code with only one process, being also a sequential execution, we get the anticipated overhead from the additional MPI code.
+
+```log
+Testing with 1 processes...
+  Grid Size: 50x50, Execution Time: 2.53 seconds, after 921 iterations, residual = 4.9884283972926024e-05
+  Grid Size: 75x75, Execution Time: 11.02 seconds, after 1811 iterations, residual = 4.9999453243256274e-05
+  Grid Size: 100x100, Execution Time: 31.35 seconds, after 2905 iterations, residual = 4.993483841261299e-05
+  Grid Size: 150x150, Execution Time: 134.21 seconds, after 5563 iterations, residual = 4.99790877950682e-05
+```
+
+Then, with a parallelization with 2 processes, we almost halve the execution times and achieve very good parallelization while our iteration counts are slightly off.
+
+```log
+Testing with 2 processes...
+  Grid Size: 50x50, Execution Time: 1.29 seconds, after 917 iterations, residual = 4.996887370765269e-05
+  Grid Size: 75x75, Execution Time: 5.68 seconds, after 1806 iterations, residual = 4.990103251934661e-05
+  Grid Size: 100x100, Execution Time: 15.71 seconds, after 2897 iterations, residual = 4.999177952400275e-05
+  Grid Size: 150x150, Execution Time: 67.36 seconds, after 5552 iterations, residual = 4.9976947614032176e-05
+```
+
+Running with 4 processes improves the performance even more while slightly losing some more accuracy. But we still almost get a 40% improvement in execution time!
+
+```log
+Testing with 4 processes...
+  Grid Size: 50x50, Execution Time: 0.79 seconds, after 930 iterations, residual = 4.995656816455167e-05
+  Grid Size: 75x75, Execution Time: 3.13 seconds, after 1822 iterations, residual = 4.990014553031654e-05
+  Grid Size: 100x100, Execution Time: 8.55 seconds, after 2917 iterations, residual = 4.992126799124818e-05
+  Grid Size: 150x150, Execution Time: 35.84 seconds, after 5576 iterations, residual = 4.9958378575168635e-05
+```
+
+However, if we then take a look at the performance of running the code with 8 processes, the implementation performs very poorly on small grids, being even a lot slower than the sequential implementation. Going up to a grid size of 150x150, we then get better execution times than the sequential code. 
+So, we can expect this implementation to perform better with multiple processes if the grid sizes also get higher.
+
+```log
+Testing with 8 processes...
+  Grid Size: 50x50, Execution Time: 13.37 seconds, after 951 iterations, residual = 4.999826933182698e-05
+  Grid Size: 75x75, Execution Time: 22.52 seconds, after 1852 iterations, residual = 4.992196962316843e-05
+  Grid Size: 100x100, Execution Time: 39.52 seconds, after 2952 iterations, residual = 4.999826391719305e-05
+  Grid Size: 150x150, Execution Time: 104.73 seconds, after 5619 iterations, residual = 4.996717823494437e-05
+```
+
+#### Chessboard Strategy with color sync
+In this approach we overall for whatever reason gain some performance improvements but sacrifice quite some accuracy, at least a lot more than with the other implementation. This might suggest that implementation is not a 100% correct because we would expect higher accuracy coming from updating our cells more often. 
+And this brings us to why MPI might not be the best choice for most problems. It is simply hard to get right and not really intuitive for the developer and you can spend days on finding bugs, as we did.
+
+```log
+Testing with 1 processes...
+  Grid Size: 50x50, Execution Time: 2.08 seconds, after 830 iterations, residual = 4.968588916094831e-05
+  Grid Size: 75x75, Execution Time: 8.96 seconds, after 1608 iterations, residual = 4.9999502783355694e-05
+  Grid Size: 100x100, Execution Time: 25.19 seconds, after 2546 iterations, residual = 4.99999323702674e-05
+  Grid Size: 150x150, Execution Time: 106.50 seconds, after 4763 iterations, residual = 4.9966653167276514e-05
+Testing with 2 processes...
+  Grid Size: 50x50, Execution Time: 1.07 seconds, after 826 iterations, residual = 4.9770761326700867e-05
+  Grid Size: 75x75, Execution Time: 4.55 seconds, after 1592 iterations, residual = 4.986368941038358e-05
+  Grid Size: 100x100, Execution Time: 12.52 seconds, after 2527 iterations, residual = 4.9968677942746774e-05
+  Grid Size: 150x150, Execution Time: 53.27 seconds, after 4752 iterations, residual = 4.996511004055155e-05
+Testing with 4 processes...
+  Grid Size: 50x50, Execution Time: 0.71 seconds, after 832 iterations, residual = 4.9761230053773496e-05
+  Grid Size: 75x75, Execution Time: 2.46 seconds, after 1598 iterations, residual = 4.997969809916275e-05
+  Grid Size: 100x100, Execution Time: 6.80 seconds, after 2534 iterations, residual = 4.998253736287927e-05
+  Grid Size: 150x150, Execution Time: 27.34 seconds, after 4748 iterations, residual = 4.995664020298078e-05
+Testing with 8 processes...
+  Grid Size: 50x50, Execution Time: 1.84 seconds, after 853 iterations, residual = 4.9841384182252606e-05
+  Grid Size: 75x75, Execution Time: 5.66 seconds, after 1595 iterations, residual = 4.9853517023796076e-05
+  Grid Size: 100x100, Execution Time: 12.99 seconds, after 2581 iterations, residual = 4.991984022964618e-05
+  Grid Size: 150x150, Execution Time: 44.00 seconds, after 4799 iterations, residual = 4.996409817740762e-05
+```
