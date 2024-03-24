@@ -6,9 +6,9 @@
 
 To approximate Pi using the Bailey-Borwein-Plouffe formula, we define a number of digits we want the output to be formatted in, a number of terms we want the computation to be run for increased precision and finally we pass an executer service to run the method in parallel. 
 
-We split the work being the terms to the amount of cores the machine has available. This guarantees an even distribution of the calculations across all threads. The tasks get submitted to the executer service and are computed. 
+We split the work, being the terms, to the amount of cores the machine has available. This guarantees an even distribution of the calculations across all threads. The tasks get submitted to the executer service and are computed. 
 
-Finally, we iterate over the futures in sequence and add the partial sums to the total sum. Since the work was evenly distributed, this sequential processing is efficient, as we expect all tasks to be finished or nearly finished by the time the first one completes. Thus, the processing of the first future in the loop pauses further execution until it completes, but by that time, most partial sums computed in parallel should be available, minimizing any additional waiting. The executer service automatically sends a new task to a free core as soon as the compution has been completed.
+Finally, we iterate over the futures in sequence and add the partial sums to the total sum. Since the executor service handles the task assignment and load balancing for us, we can expect this to be efficient.
 
 ### Run Code
 
@@ -58,17 +58,17 @@ Testing with 8 threads...
 
 ```
 
+The program is scaling the way we expected it to. Going from 1 to 2 threads, we nearly exactly halve the runtime. If we keep increasing the amount of threads, we are still reducing the runtime but not as significantly anymore. The splitting of the work and the starting of the threads takes an increasing amount of time so we are not able to get much benefit from the parallelization when using a high amount of threads. That also correlates with the results stated by Amdahl's Law where every parallel program has a limit of benefit where the increasement of threads/processors is not able to speed up the calculation.
 
 ## Problem 2 - Applying Filters on an Image 
 
 ### Description
 The task involves implementing two image processing techniques: Gaussian blur and Sobel filter, with a focus on optimizing the Gaussian blur using parallel processing in Java. The Gaussian blur algorithm applies a kernel to each pixel of the image to produce a blurred effect. This process is computationally intensive, especially for large images or when using a large radius for the blur effect.
 
-The code is structured to allow comparison between a non-parallel (sequential) version and a parallelized version of the Gaussian blur. The parallelized version utilizes Java's ForkJoinPool framework, which enables efficient execution of parallel tasks, particularly beneficial for CPU-bound tasks like image processing. By dividing the image into chunks and processing each chunk in parallel, we aim to significantly reduce the overall execution time. The chunks are disgned to be of similar size, so that the calculation should take roughly the same time for every chunk. 
+The code is structured to allow comparison between a sequential version and a parallelized version of the Gaussian blur. The parallelized version utilizes Java's ForkJoinPool framework, which enables efficient execution of parallel tasks. By dividing the image into chunks and processing each chunk in parallel, we aim to significantly reduce the overall execution time. The chunks are designed to be of similar size, so that the calculation should take roughly the same time for every chunk. 
 
-The execution begins through looping over all tasks and calling `pool.execute(task)`. After completing the loop. We enter into another one to get or await the tasks value through `task.get()`. In this case it's actually just the completion of the `void` returning method. `task.get()` is a blocking call. So as we wait for the calculation of one task in one thread we actually also wait implicitly on all other threads to complete their current task. The thread pool autmatically starts the next task in an available thread, so that waiting time is actually minimal. It is important though to access the tasks value in the same order they were started.
+The execution begins through looping over all tasks and calling `pool.execute(task)`. After completing the loop, we enter into another one to get or await the tasks value through `task.get()`. In this case it's actually just the completion of the `void` returning method. `task.get()` is a blocking call, so as we wait for the calculation of one task in one thread, we actually also wait implicitly for all other threads to complete their current task. The thread pool autmatically starts the next task in an available thread, so that waiting time is actually minimal. It is important though to access the tasks value in the same order they were started.
 Since the image is passed to every single task, we have to ensure that the tasks do not interfere with each other through simultaneous modification. To avoid this, we use Java's `synchronized` keyword on the `outputImage` object. This ensures that only one thread can modify the image at a time, preventing race conditions and ensuring the integrity of the image processing operation.
-
 
 ### Run Code
 To run the code again you'll need Java 8 or newer. The file needs to be compiled and can then be run, similar to problem 1.
@@ -79,7 +79,7 @@ javac problem_2.java && java problem_2
 
 The main method has 3 methods to choose between the two serial implementaions of the algorithms or run the scalability test to get the console logs which can be seen below. 
 
-Also you can just access the static methods from the package after you compile it. The method `createBlurredImage()` let's you blur any image from the assets folder with available parameters. The same applies to the `createImageWithSharpEdges()` method. If the parallel algorithm should not be executed, then simply pass a `null` ForkJoinPool. Otherwise create it, set the amount of cores to utilize and then pass the parameter to the methods.
+Also you can just access the static methods from the package after you compile it. The method `createBlurredImage()` lets you blur any image from the assets folder with available parameters. The same applies to the `createImageWithSharpEdges()` method. If the parallel algorithm should not be executed, then simply pass a `null` ForkJoinPool. Otherwise create it, set the amount of cores to utilize and then pass the parameter to the methods.
 
 ### Results
 The execution times for the Gaussian blur with different radius values were recorded, highlighting the performance benefits of parallel processing. Here's a summary of the observed results:
@@ -111,7 +111,7 @@ Testing parallel gaussian blur with 8 threads...
    Radius: 20, Execution time: 10,41 seconds
 ```
 
-The results clearly demonstrate the efficiency of parallelizing the Gaussian blur operation. We see that stepping up to utilizing 2 and also 4 cores brings significant performance improvements. However, at the same time, even though the numbers are lower in all cases, we notice that the numbers at 8 threads are not as impressive as the other two thread bumps. Still running the algorithm in this implementation in parallel always brings us a benefit. It might be interesting to see the performance on a machine with more than 8 cores to see how it scales there.
+The results clearly demonstrate the efficiency of parallelizing the Gaussian blur operation. We see that stepping up to utilizing 2 and also 4 cores brings significant performance improvements. However, at the same time, even though the numbers are lower in all cases, we notice that the numbers at 8 threads are not as impressive as the other two thread bumps. Still, running the algorithm in this implementation in parallel always brings us a benefit.
 
 For the Sobel filter, running the calculations in parallel results in only slight improvements. This is primarily due to the inherently lower complexity of the Sobel filter algorithm compared to the Gaussian blur as can be seen in the following numbers. 
 
@@ -126,14 +126,14 @@ Testing parallel sobel edge detection with 8 threads...
    Execution time: 0,54 seconds
 ```
 
-The Gaussian blur's computational load can be significantly increased by parameters such as `radius`, which directly impacts the size of the convolution kernel and, consequently, the number of calculations required per pixel. In contrast, the Sobel filter uses a fixed-size kernel (typically 3x3), leading to a relatively consistent and lower computational load regardless of the image size. Therefore the overhead associated with managing parallel tasks can offset the gains from distributing this workload across multiple processors.
+The Gaussian blur's computational load can be significantly increased by parameters such as `radius`, which directly impacts the size of the convolution kernel and, consequently, the number of calculations required per pixel. In contrast, the Sobel filter uses a fixed-size kernel (typically 3x3), leading to a relatively consistent and lower computational load regardless of the image size. As we don't have such variables to increase the problem size for the sobel filter, we are not seeing any difference when further splitting the work across an increasing amount of workers. Instead, we might even end up seeing increased execution durations.
 
 
 ## Problem 3 - Sorting
 
 ### Description
 
-To sort numbers sequentially, we decided to use quicksort. The selection of the pivot value is simplified and uses always the list element located at the index equalling half of the size of the whole list. Afterwards, we build three lists: on for the elements less than the pivot value, one for the elements equalling the pivot value and one for all greater values. For the result list, we call the method recursive and add the results in the order less-equal-greater to the result list.
+To sort numbers sequentially, we decided to use quicksort. The selection of the pivot value is simplified and uses always the list element located at the index equalling half of the size of the whole list. Afterwards, we build three lists: one for the elements less than the pivot value, one for the elements equalling the pivot value and one for all greater values. For the result list, we call the method recursively and add the results in the order less-equal-greater to the result list.
 
 The parallel version uses the same algorithm but creates a task for each recursive call except for the "equal" list. Like that, the branching has to reach a specific amount of recursive calls that all threads can be used efficiently. Depending on the size of the ordered list, this can be an issue.
 
@@ -149,7 +149,7 @@ The intention of using quicksort in parallel was mainly the easy implementation.
 
 We tested number arrays of the sizes 1.000, 10.000, 100.000, 1.000.000 and 10.000.000. The results are displayed below. Note that every line uses a different number array of the specified size so the computing times may differ for the same instance size.
 
-```
+```log
 Instance size 10^3
 
 Quicksort: 4.008143 ms,  Parallel quicksort: 6.940235 ms
@@ -197,7 +197,7 @@ If the instances get bigger than 10^5 the parallel algorithm is able to perform 
 
 If we compare our parallel algorithm to the `ArrayList.sort()` method provided by java, we get the following results:
 
-```
+```log
 Instance size 10^4
 
 Quicksort: 9.701575 ms,  Parallel quicksort: 26.231786 ms
@@ -239,15 +239,15 @@ We can see that the algorithm is faster than our implementation of sequential qu
 
 For this task we decided to switch to python since the provided code was in python, but also because the numpy module in python just makes it easier to work with matrices. First we took a look at the provided code and tried to parallelize that one by simply utilizing the numba library. Decorating the `gauss_seidel_step` method with the `@njit` annotation setting the `parallel` flag to `True` and using `prange` for the outer loop improved the performance significantly. 
 
-During the initial examination of the provided code, we identified a potential optimization in the gauss_seidel_step method. The original increment for updating the grid was modified from `diff**2 * diff**2` to `diff**2`, aligning with standard practices for calculating residuals in iterative solvers. This correction ensures that the algorithm accurately measures convergence towards the solution.
+During the initial examination of the provided code, we identified a potential optimization in the `gauss_seidel_step` method. The original increment for updating the grid was modified from `diff**2 * diff**2` to `diff**2`, aligning with standard practices for calculating residuals in iterative solvers. This correction ensures that the algorithm accurately measures convergence towards the solution.
 
 Then we implemented the red-black aka. chessboard strategy from the lecture. We first calculate all the red cells and then all the black cells and add the accumulated results together. For each color we iterate over the rows in parallel and over the columns in the same thread, and calculate the partial results.
 
-Numba's JIT compliation takes quite some time when a method is executed for the first time. For that reason, we execute the calculation first with minimal numbers only for the sake of triggering the JIT compilation for numba. Thus, no numbers are influenced by that.
+Numba's JIT compilation takes quite some time when a method is executed for the first time. For that reason, we execute the calculation first with minimal numbers only for the sake of triggering the JIT compilation for numba. Thus, no numbers are influenced by that.
 
 ### Run code 
 
-To run the code, just execute the files main method, or call the modules `gauss_seidel_step` method for a parallelized version of the provided code or `gauss_seidel_step_chessboard` for the chessboard strategy. It takes a two dimensional matrix and returns the numeric residual value.
+To run the code, just execute the file's main method, or call the module's `gauss_seidel_step` method for a parallelized version of the provided code or `gauss_seidel_step_chessboard` for the chessboard strategy. It takes a two dimensional matrix as a parameter and returns the numeric residual value.
 
 ### Results
 
@@ -290,7 +290,8 @@ Testing with 8 threads...
 
 #### Parallelized version of the provided code
 
-Here we don't see such a threshold needed to be past in order to be worth the overhead of the parallelism. For very low grid sizes it performs slightly better than the chessboard approach, but for higher grid sizes it's a lot less performant.
+Here we don't see such a threshold needed to be passed in order to be worth the overhead of the parallelism. For very low grid sizes it performs slightly better than the chessboard approach, but for higher grid sizes it's a lot less performant.
+This difference is absolutely rational as instead of parallelizing just the rows for the serial computation, we parallelize the rows for a specific colour of the chessboard, reducing the workload of a single worker. 
 
 ```log 
 Testing with 1 threads...

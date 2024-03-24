@@ -4,7 +4,7 @@
 
 ### Description
 
-To parallelize the code using the GPU, we use the package `cupy`. We can easily calculate the single sums with the `bailey_borwein_plouf` function. To compare it to a not GPU-parallelized version, we change `cp.sum`/`cp.arange` to `np.sum`/`np.arange` and use simple `numpy` to calculate the results. 
+To parallelize the code using the GPU, we use the package `cupy`. We can easily calculate the single sums with the `bailey_borwein_plouf` function. To compare it to a not GPU-parallelized version, we change `cp.sum`/`cp.arange` to `np.sum`/`np.arange` and use `numpy` to calculate the results.
 
 ### Run Code
 
@@ -12,31 +12,35 @@ The code is provided in `problem_1.ipynb`.
 
 To run the code simply install the necessary packages and run the specific cell.
 
-The first cell with the parallel version can only be run when the computer has a NVDIA GPU and the cuda driver installed. The second cell with the sequential version only needs python and has no other dependency.
+The first cell within the jupyter notebook with the parallel version can only be run when the computer has a NVDIA GPU and the cuda driver installed. The second cell with the sequential version only needs python and has no other dependency.
+
+If there is no NVIDIA GPU available, you can always use Google Colab to run the notebook.
 
 ### Results
 
-The results are shown below and are calculated using the two different code cells in the jupyter notebook.
+Like in the last examples, we test our methods with different amount of terms. As we are going to see in the outputs, the algorithm is quite fast which is why we increased the maximum number of terms to 100.000.000 to get a better understanding of how well the algorithm scales using larger problem sizes.
 
-numpy
-```
+The two different code cells provide us the following output:
+
+#### numpy
+```log
 Terms:  100000 , Execution time:  7.173  ms, Pi approximation:  3.141592653589793
 Terms:  1000000 , Execution time:  52.927  ms, Pi approximation:  3.141592653589793
 Terms:  10000000 , Execution time:  689.888  ms, Pi approximation:  3.141592653589793
 Terms:  100000000 , Execution time:  5837.467  ms, Pi approximation:  3.141592653589793
 ```
 
-cupy
-```
+#### cupy
+```log
 Terms:  100000 , Execution time:  2.204  ms, Pi approximation:  3.1415926535897936
 Terms:  1000000 , Execution time:  5.128  ms, Pi approximation:  3.1415926535897936
 Terms:  10000000 , Execution time:  41.811  ms, Pi approximation:  3.1415926535897936
 Terms:  100000000 , Execution time:  291.806  ms, Pi approximation:  3.1415926535897936
 ```
 
-The parallelization works great. The numpy calculation is already very fast and the cupy version can improve the runtime results up to 20 times. We also needed to improve the maximum number of terms compared to the last assignments because the calculation is so fast.
+The parallelization works great. The numpy calculation is already very fast and is, even for the new large maximum term size, significantly faster than all the other versions before. Nevertheless, the cupy version is able to improve the runtime results up to 20 times and increases the improvement compared to the numpy version for increasing term amounts.
 
-Apparently GPUs are pretty good in doing simple calculations like the bailey-borwein-plouf-formula. The many kernels can efficiently be used for calculating the single summands which is what was expected by us.
+Apparently GPUs are pretty good in doing simple calculations like the bailey-borwein-plouf-formula. The many kernels can efficiently be used for calculating the single summands which is what was expected by us. The calculation for each number of terms can also be done independently to each other so there is no need for extra communication or writing back values to the cpu. That's why this problem is perfect for GPU parallelization.
 
 ## Problem 2 - Applying Filters on an Image
 
@@ -44,8 +48,8 @@ Apparently GPUs are pretty good in doing simple calculations like the bailey-bor
 To execute and test the written algorithms we again use Google Colab with an NVIDIA GPU. The T4 GPU was mainly used in development, but the code was also tested on an A100 and V100.
 
 The codes for the gaussian blur and the sobel filter are very similar. The only difference is that for the guassian blur we need a kernel in addition to the calculation. 
-We read the image, create a zero matrix like the image matrix for the resulting image. We copy the readed image matrix, the kernel and the resulting image matrix to the device. 
-After that we setup the grid and block sizes. This part is specific to the used GPU. Executing the code we used for the NVIDIA T4 lead to a crash on the A100 and V100 GPUs therefore the total amount of threads had to be lowered.
+We read the image, create a zero matrix like the image matrix for the resulting image. We copy the read image matrix, the kernel and the resulting image matrix to the device. 
+After that we setup the grid and block sizes. This part is specific to the used GPU. Executing the code we used for the NVIDIA T4 lead to a crash on the A100 and V100 GPUs. Therefore the total amount of threads had to be lowered.
 The function to apply the kernel in parallel with `@cuda.jit` annotation is executed and we can achieve great parallelization with that, what can be seen results.
 
 
@@ -130,7 +134,7 @@ The NVIDIA A100 and V100 show even lower execution times than the T4 GPU with an
 | (14, 14)          | 80     | 0.84          | 1.16          |
 
 #### Sobel Filter
-Since we have
+
 The sobel filter has less variability through different radii whatsoever. As we have seen in the results of the gaussian blur, the Google Colab GPU machines do not have very well performing CPUs. So the run times of the sequential sobel edge filter is between 28 and 30 seconds while on a MacBook Pro with M1 Pro chip it takes less than 10 seconds.
 
 | Run Number | Execution Time (seconds) |
@@ -163,7 +167,7 @@ The main part of GPU parallelization is done by cuda. We first select the amount
 
 This parallelization was able to be significantly improved by using cupy arrays instead of numpy arrays. To synchronize the program after each calculation (either red or black), we use the stream synchronization by cupy (`cp.cuda.stream.get_current_stream().synchronize()`).
 
-For get the optimal results, we are testing different grid sizes together with different threads per block.
+For getting optimal results, we are testing different grid sizes together with different threads per block.
 
 ### Run Code
 
@@ -179,7 +183,7 @@ The different parameters can be adjusted in the main method (commented). If ther
 
 We get the following results using five different grid sizes and five different amounts of threads per block. The maxiterations are kept at 25.000 and the residual tolerance at 0.00005 to ensure a more precise and also more complex calculation so we are able to do a better evaluation. The results are calculated using Google Colab with a T4 GPU.
 
-```
+```log
 Running with (16, 16) threads per block...
 
     Grid Size: 100x100, Execution time: 4.55 seconds, after 2810 iterations residual: 4.993036782252602e-05
@@ -225,6 +229,6 @@ All single executions using different amounts of threads per block are giving us
 
 Compared to a 100x100 grid, the 500x500 grid has 25 times as many fields but the runtime is only 15 times as long. If we compare 100x100 to 1500x1500 the instance size is 225 times the size but the runtime is only around 43 as much. We can see that there are some improvements compared to a sequential version but the parallelization is of course not optimal.
 
-The problem with the algorithm is the necessarity to synchronize the results. We have to synchronize the results two times in every loop iteration so especially for a high amount of iterations we have a lot of synchronizations. That's why we are not able to use the many kernels of the GPU efficiently and improve our results the way we did it for the other two problems of assignment 3.
+The problem with the algorithm is the necessarity to synchronize the results. We have to synchronize the results two times in every loop iteration so especially for a high amount of iterations we have a lot of synchronizations. This synchronization is necessary for the correctness of the algorithm because the calculation of red results is depending on the (finished) calculation of the black results and the other way around. The synchronization is why we are not able to use the many kernels of the GPU efficiently and improve our results the way we did it for the other two problems of assignment 3.
 
 Note: We also tried to measure the runtime using `%timeit`. Doing that, our algorithm had a runtime of about 1ms for a 100x100 grid but we were not able to process and print the results of the calculation. Somehow timeit measures only part of the calculation and doesn't measure correct results when using gpu parallelization.

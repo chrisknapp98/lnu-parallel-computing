@@ -4,11 +4,11 @@
 
 ### Description
 
-Like in assignment 1, we use the Bailey-Borwein-Plouffe formula. We again define a number of digits and a number of terms. To implement mpi, we use the recommended mpi4py and create an instance with `MPI.COMM_WORLD`.
+Like in assignment 1, we use the Bailey-Borwein-Plouffe formula. We again define a number of digits and a number of terms. To implement a parallelization with the mpi strategy, we use the recommended mpi4py and create an instance with `MPI.COMM_WORLD`.
 
 The parallelization works like in assignment1 and splits the number of terms depending on the number of the available mpi instances. Then, every instance does the calculation for the given parameters. After finishing the calculation, the results are collected using `MPI.COMM_WORLD.reduce` with the operation parameter set to `MPI.SUM` so we receive the expected sum.
 
-The time calculation starts before the term seperation and ends when finishing the calculation so we track the effort of both splitting the work and calculating the sum. The instance with rank 0 then prints the output showing us the execution time for the different amount of terms.
+The time calculation starts before the term seperation and ends when finishing the calculation so we track the effort of both, splitting the work and calculating the sum. The instance with rank 0 then prints the output showing us the execution time for the different amount of terms.
 
 ### Run Code
 
@@ -24,7 +24,7 @@ For the parallel execution with mpi4py you need to use the function `approximate
 mpiexec -n 4 problem_1.py
 ```
 
-The parameter n defines the number of instances to use for the calculation.
+MPI has to be installed for using this command. The parameter n defines the number of instances to use for the calculation.
 
 ### Results
 
@@ -41,9 +41,9 @@ seq| 5.02 | 47.28 | 234.45 | 473.47 | 915.98
 12| 7.17 | 11.07 | 44.65 | 75.45 | 137.12
 16| 45.75 | 19.93 | 46.42 | 102.83 | 143.71
 
-Running the calculation sequential has nearly the same runtime results as the calculation using mpi with `n=1` which of course makes sense because in both cases there is only one instance doing the calculation.
+Running the calculation sequentially has nearly the same runtime results as the calculation using mpi with `n=1` which of course makes sense because in both cases there is only one worker doing the calculation.
 
-The best results are calculated when using 12 instances. This might correlate with the computer that was used for the calculation, because it has 12 kernels. For the small amount of terms, the runtime increases when using more than 8 instances. The cost for creating the mpi instances is significantly higher than the improvement with the parallelization. When it comes to a higher amount of terms, we can see a good decrease of runtime. For example for 2 million terms using 12 mpi instances, we get a 6.68 times improvement which is a good improvement at all but not as good as expected, if we have 12 parallel runners.
+The best results are calculated when using 12 instances. This might correlate with the computer that was used for the calculation, because it has 12 kernels. For the small amount of terms, the runtime increases when using more than 8 instances. The cost for creating the mpi instances is significantly higher than the improvement with the parallelization. When it comes to a higher amount of terms, we can see a good decrease of runtime. For example for 2 million terms using 12 mpi instances, we get a 6.68 times improvement which is a good improvement in general but not as good as expected, if we have 12 parallel runners.
 
 It is very interesting that the runtime for 10.000 terms with `n=16` is more than double the runtime of 100.000 terms. This could be seen repeatedly on every run. It seems that there is a high initial cost for creating all the mpi instances in the first loop iteration. Although all the different term sizes are calculated repeatedly in the loop, there might be some internal caching process by mpi4py so that the next iterations are faster than the first one. 
 
@@ -53,17 +53,17 @@ It is very interesting that the runtime for 10.000 terms with `n=16` is more tha
 
 #### Gaussian Blur 
 
-As we decided to implement the MPI problems in python, first we implemented the gaussuan blur sequentially without parallelization. Then, for curiosity we also implemented a shared memory version using numba. Compared to the java implementation from aissignment 1 it performed way better and that shows how well optimized the numba module is.
-Then it was time to implement a parallel version with the MPI approach. The image is read, a numpy array is being created from that and then we have to split the image into chunks in order to distribute fractions of the image to different workers. Even though a worker only gets a specific area of the image, still those areas need to overlap with other areas to compute the ideal blurred image. That's what the `distribute_chunks_with_overlap` method takes care of. The chunks are being distributed through `comm.scatter(chunks, root=0)` and the blur is applied to each single chunk. The results from each worker are being collected through `comm.gather(blurred_chunk, root=0)` and afterwards the overlapping parts need to be trimmed. Finally, the image needs to be created from the array and written to the target destination. 
+As we decided to implement the MPI problems in python, first we implemented the gaussian blur sequentially without parallelization. Then, for curiosity, we also implemented a shared memory version using numba. Compared to the java implementation from assignment 1 it performed way better and that shows how well optimized the numba module is.
+The parallel version with the MPI approach works the following: The image is read, a numpy array is being created from that and then we have to split the image into chunks in order to distribute fractions of the image to different workers. Even though a worker only gets a specific area of the image, still those areas need to overlap with other areas to compute the ideal blurred image. That's what the `distribute_chunks_with_overlap` method takes care of. The chunks are being distributed through `comm.scatter(chunks, root=0)` and the blur is applied to each single chunk. The results from each worker are being collected through `comm.gather(blurred_chunk, root=0)` and afterwards the overlapping parts need to be trimmed. Finally, the image needs to be created from the array and written to the target destination. 
 
 #### Sobel Edge Detection
 
-For this filter we also implemented the serial version, as well as a prallel numba version and a parallel MPI version. 
-We could reuse very much of the code used for the image blur and the only differences are actually that we do not have a kernel for this filter and have a different filter calculation per chunk. Further, the filter has no variable like the radius. Therefore, we still overlap the chunks, but keep it to the absolute minimum which is needed. Otherwise two pixels between the chunks would not receive the filter application.
+For this filter we also implemented the serial version, as well as a parallel numba version and a parallel MPI version. 
+We could reuse a lot of the code used for the image blur and the only differences are actually that we do not have a kernel for this filter and have a different filter calculation per chunk. Further, the filter has no variable like the radius. Therefore, we still overlap the chunks, but keep it to the absolute minimum which is needed. Otherwise two pixels between the chunks would not receive the filter application.
 
 ### Run Code 
 
-The script contains a sequential implementation, as well as a parallel numba implemenetation and a parallel MPI implementation for both, the gaussian blur and the sobel edge detection. 
+The script contains a sequential implementation, as well as a parallel numba implementation and a parallel MPI implementation for both, the gaussian blur and the sobel edge detection. 
 
 The methods are all publicly available in the script and the main block also contains many commented out methods for executing the filters or testing the scalability.
 
@@ -95,7 +95,7 @@ We have to note that compared to the implementation in Java from assignment 1, t
 | Sequential     | N/A               | 10     | 17.51              |
 | Sequential     | N/A               | 20     | 23.41              |
 
-Since the execution times in the prallel MPI version are substantually higher, we chose to use lower radii than the ones above for the comparison.
+Since the execution times in the parallel MPI version are substantually higher, we chose to use lower radii than the ones above for the comparison.
 The use of Numba for parallel execution dramatically improves performance, showcasing the benefits of parallel computing. With just 1 thread, the execution times are significantly reduced compared to the sequential execution, starting at 0.75 seconds for radius 1 and reaching up to 2.05 seconds for radius 9. This already represents a substantial improvement.
 Increasing the number of threads further decreases the execution time. With 2 threads, the execution time for radius 1 drops to 0.07 seconds, and with 8 threads, it remains low at 0.05 seconds for the same radius. For larger radii, the execution times also decrease with more threads, demonstrating excellent scalability with the number of threads up to 8, where execution time for radius 9 is just 0.38 seconds.
 
@@ -122,6 +122,7 @@ Even when increasing the number of processes to 2 and 4, the execution times, al
 
 The contrast in performance between Numba and MPI implementations for parallel computing in this case study is noteworthy. Numba's parallel execution with threads demonstrates exceptional efficiency and scalability for the Gaussian blur operation, significantly outperforming the MPI approach, which struggles to achieve similar efficiency gains. This might be surprising given MPI's widespread use in high-performance computing for distributed memory systems. The poor performance of MPI in this context could be attributed to overheads associated with inter-process communication, which become pronounced for operations like Gaussian blur that require intensive data exchange. This analysis underscores the importance of choosing the right parallel computing approach based on the specific nature of the task and the computational resources available.
 
+> Even though we introduce overheads with inter-process communication, we should still note that we get almost double the execution time when executing the mpi code with just one process. The execution times decrease with a higher number of processes, but the number for just one process suggests that the implementation contains a significant problem which introduces quite big overheads.
 
 #### Sobel Edge Detection
 
@@ -137,14 +138,14 @@ Running the filter in parallel by using MPI with 1 process essentially simulates
 | Method     | Configuration | Execution Time (s) | Improvement over Sequential |
 | ---------- | ------------- | ------------------ | --------------------------- |
 | Sequential | N/A           | 9.97               | N/A                         |
-| MPI        | 1 process     | 11.05              | Slower by 1.08s             |
-| MPI        | 2 processes   | 5.75               | Improved by 4.22s           |
-| MPI        | 4 processes   | 2.90               | Improved by 7.07s           |
-| MPI        | 8 processes   | 2.09               | Improved by 7.88s           |
 | Numba      | 1 thread      | 0.95               | Improved by 9.02s           |
 | Numba      | 2 threads     | 0.04               | Improved by 9.93s           |
 | Numba      | 4 threads     | 0.04               | Improved by 9.93s           |
 | Numba      | 8 threads     | 0.04               | Improved by 9.93s           |
+| MPI        | 1 process     | 11.05              | Slower by 1.08s             |
+| MPI        | 2 processes   | 5.75               | Improved by 4.22s           |
+| MPI        | 4 processes   | 2.90               | Improved by 7.07s           |
+| MPI        | 8 processes   | 2.09               | Improved by 7.88s           |
 
 This table highlights the effectiveness of parallel computing in reducing execution times for image processing tasks like Sobel edge detection. Numba's multi-threading capability shows an impressive performance, drastically reducing execution times to near-instantaneous levels with minimal overhead for increasing threads. In contrast, MPI shows a more gradual improvement as the number of processes increases, with diminishing returns indicating the overhead associated with inter-process communication.
 
@@ -159,11 +160,11 @@ The use of MPI for parallel processing demonstrated significant benefits for the
 
 We used our algorithm of assignment 1 and translated it to python to use mpi4py. The sequential algorithm is still quicksort with the pivot value at the index equalling half the list size.
 
-To parallelize this algorithm we have to keep track of the communication between the single instances. That's why we decided to distribute the list into equal parts and give each instance a part of the original list to sort. After that sorting, the mpi instance with rank 0 gathers the results and merges the single sorted lists together by searching for the smallest first item of all the sorted lists and then adding it to the result.
+To parallelize this algorithm we have to keep track of the communication between the single instances. That's why we decided to distribute the list into equal parts and give each instance a part of the original list to sort. After that sorting, the mpi instance with rank 0 gathers the results and merges the single sorted lists together by searching for the smallest first item of all the sorted lists and then adding it to the result. This can be done efficiently using a stack data structure for the single lists.
 
 ### Run code
 
-Like in assignment 1, we use random generated lists with different sizes to measure the runtime. The lists are located in the inputs folder and have to look like the file `random_integers.json` (located inside this folder).
+Like in assignment 1, we use random generated lists with different sizes to measure the runtime. The lists are not provided because they take a lot of storage space but they have to be located in the inputs folder and look like the file `random_integers.json` (located also inside this folder) to get the program running.
 
 The main function of the file iterates over multiple of these files with special names so it might be necessary to either create files with the same names or change the logic of the loops.
 
@@ -179,7 +180,7 @@ and adjust the number of instances by changing the n parameter.
 
 We get the different results by outputs looking like that:
 
-```
+```log
 Instance size 10^3
 
 Quicksort: 0.11 ms, Parallel quicksort: 21.39 ms
@@ -202,24 +203,24 @@ To keep track of all the different results also with multiple values for the n p
 | 12       | 2.25      | 15.51     | 212.19    |
 | 16       | 14.12      | 48.73     | 356.20    |
 
-The results of this parallelization is not really good. For small number of instances, the effort for the list splitting and merging is bigger than the improvements of the parallel work so we just increase runtime. We have a optimum with slight improvements for the smaller list at `n=4`. With higher n values we keep increasing the runtime, also because it gets more complicated to merge the lists when finishing the sorting. If we compare the runtime to the already predefined `sorted` function in python, there is no reason to parallelize the sorting algorithm because the predefined version is so much faster.
+The results of this parallelization is not really good. For small number of instances, the effort for the list splitting and merging is bigger than the improvements of the parallel work so we just increase runtime. We have an optimum with slight improvements for the smaller list at `n=4`. With higher n values we keep increasing the runtime, also because it gets more complicated to merge the more lists when finishing the sorting. If we compare the runtime to the already predefined `sorted` function in python, there is no reason to parallelize the sorting algorithm because the predefined version is so much faster.
 
-Compared to assignment 1 and using a threadpool to add the single recursive tasks to this pool, the parallel version of quicksort using mpi is just not meaningful. The communication inside a threadpool is so much easier so a new task can be instantly started after finishing one. With mpi, we firstly needed to simplify the parallelization of the algorithm, and then do the not optimal merging between the lists that only one mpi instance can do, so we have a lot of effort for the branch and bound of the task and wait for single instances to finish their work which slows the whole algorithm down.
+Compared to assignment 1 and using a threadpool to add the single recursive tasks to this pool, the parallel version of quicksort using mpi is just not meaningful. The communication inside a threadpool is so much easier and a new task can be instantly started after finishing one. With mpi, we firstly needed to simplify the parallelization of the algorithm, and then do the not optimal merging between the lists that only one mpi instance can do, so we have a lot of effort for the branch and bound of the task and wait for single instances to finish their work which slows down the whole algorithm.
 
 ## Problem 4 - Iterative Solver
 
 ### Description 
 
-This problem was very hard to get parallelized. In the end, our final implementation should not even be a 100% correct. With the chosen strategy being the chessboard strategy or even just looping through the cells, it should not really be possible to parallelize the algorithm for one iteration and get accurate results. However, the parallelization may find justification if the use case is just to get a rough estimate of the needed iteration counts and if that's the goal, we actually have surprising results which suggest that you might find a benefit using the MPI parallelization strategy, but only with specific configurations. 
+This problem was very hard to get parallelized. With the chosen strategy being the chessboard strategy or even just looping through the cells, it should not really be possible to parallelize the algorithm for one iteration and get accurate results. However, the parallelization may find justification if the use case is just to get a rough estimate of the needed iteration counts and if that's the goal, we actually have surprising results which suggest that you might find a benefit using the MPI parallelization strategy, but only with specific configurations. 
 
-To parallelize the algorithm, ideally you would instead look at another strategy. As one iteration should run sequentially because cells need their updated corresponding neighbours from top and left and therefore we would instead look to something different to parallelize. For example we could run multiple iterations in parallel instead and set specific boundaries which need to be passed in order for another work to start its calculation. That would require much more communication between the workers and was considered overkill for the sake of this exercise. But in theory and if done properly, we should see quite some performance improvements while maintaining the same accuracy as the sequential algorithm.
+To parallelize the algorithm, ideally you would instead look at another strategy. As one iteration should run sequentially because cells need their updated corresponding neighbours from top and left and therefore we would instead look to something different to parallelize. For example we could run multiple iterations in parallel instead and set specific boundaries which need to be passed in order for another work to start its calculation. That would require much more communication between the workers and was considered overkill for the sake of this exercise. But in theory, we should see quite some performance improvements while maintaining the same accuracy as the sequential algorithm.
 
-We implemented two versions to solve the problem, or at least get near to a real solution.
+We implemented two versions to solve the problem, or at least get near to an accurate solution.
 In method `gauss_seidel_mpi()` we don't sync the colors with other workers after calculating the residual and updating the grid. In the method `gauss_seidel_mpi_chessboard_with_color_sync()` we do exactly that in hope to get a more accurate calculation.
 
 #### Chessboard Strategy without color sync
-So what we did, was to initialize the grid through the `init()` method from the given `heat.py` script and then divide the grid vertically into as many sections as we have workers. The rows are overlapping, so that in theory we apply the calculation to every cell as it would in the sequential code. 
-We avoided initializing the grid just on rank 0 and scattering the sections because it was taking a lot of time and was just painful. In our use case we always run the code on just one machine and therefore we decided to not waste our time with something bein irrelevant for the end result. 
+So what we did, was to initialize the grid through the `init()` method from the given `heat.py` script and then divide the grid vertically into as many sections as we have workers. The rows are overlapping, so that we apply the calculation to every cell as it would be in the sequential code. 
+We avoided initializing the grid just on rank 0 and scattering the sections because it was taking a lot of time. In our use case we always run the code on just one machine and therefore we decided to not waste more time with something having less relevance for the end result.
 We loop as long as the iteration count is smaller than the maximum iteration count and the calculated summed residual is smaller than the aimed tolerance.
 In every loop, we first send and receive the overlapping ghost cells from the neighbouring workers to have a more accurate calculation. Then we collect the results from all workers and sum them up. Finally, we check if we are done and communicate that to all workers.
 
@@ -247,7 +248,7 @@ mpiexec -n 8 python problem_4.py
 
 ### Results
 Comparing the code to the sequential approach, we have quite mixed results.
-As mentioned before, with the chosen parallelization approach we sacrifice accuarcy but can get quite some performance improvements.
+As mentioned before, with the chosen parallelization approach, we have decreased accuracy but can get quite some performance improvements.
 
 ```log
 Sequential Code
@@ -300,8 +301,8 @@ Testing with 8 processes...
 ```
 
 #### Chessboard Strategy with color sync
-In this approach we overall for whatever reason gain some performance improvements but sacrifice quite some accuracy, at least a lot more than with the other implementation. This might suggest that implementation is not a 100% correct because we would expect higher accuracy coming from updating our cells more often. 
-And this brings us to why MPI might not be the best choice for most problems. It is simply hard to get right and not really intuitive for the developer and you can spend days on finding bugs, as we did.
+In this approach we overall gain some performance improvements but lower the accuracy, at least a lot more than with the other implementation. Also it is very interesting that even with one process our execution time decreases, what we would definitely not expect. This might suggest that implementation is not a 100% correct because we would expect higher accuracy coming from updating our cells more often.
+In summary: MPI might not be the best choice for most problems. It is simply hard to get right and not really intuitive for the developer and you can spend days on finding bugs, as we did.
 
 ```log
 Testing with 1 processes...
