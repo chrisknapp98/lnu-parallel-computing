@@ -1,4 +1,5 @@
 # Assignment 3
+Konstantin Fritzsch, Christopher Knapp
 
 ## Problem 1 - Approximating Pi
 
