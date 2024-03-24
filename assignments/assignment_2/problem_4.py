@@ -124,10 +124,6 @@ def gauss_seidel_mpi_chessboard_with_color_sync(grid_size, maxiter, tol):
     done = False
     while not done and iterations < maxiter:
         for color in [0, 1]:
-            local_residual = update_cells_by_color(local_grid, color)
-            
-            comm.Barrier()
-
             if rank != 0:
                 send_data = local_grid[1, :]
                 recv_data = np.empty_like(send_data)
@@ -140,7 +136,7 @@ def gauss_seidel_mpi_chessboard_with_color_sync(grid_size, maxiter, tol):
                 comm.Sendrecv(send_data, dest=rank+1, recvbuf=recv_data, source=rank+1)
                 local_grid[-1, :] = recv_data 
             
-            comm.Barrier()
+            local_residual = update_cells_by_color(local_grid, color)
 
         global_residual = comm.allreduce(local_residual, op=MPI.SUM)
         
@@ -182,6 +178,7 @@ def test_mpi_scalability(grid_sizes, maxiter, tol):
         if rank == 0:
             start_time = time.time()
         res, i = gauss_seidel_mpi(size, maxiter, tol)
+        # res, i = gauss_seidel_mpi_chessboard_with_color_sync(size, maxiter, tol)
         if rank == 0:
             end_time = time.time()
             execution_time = end_time - start_time
